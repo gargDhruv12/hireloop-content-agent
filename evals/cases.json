@@ -1,0 +1,28 @@
+[
+  {
+    "name": "bpo-speed",
+    "topic": "Slow first-round interviews are costing BPOs their best applicants",
+    "why": "Core use case. Should lean on the 48-hour result without inventing drop-off numbers."
+  },
+  {
+    "name": "ai-disclosure",
+    "topic": "Why candidates should always be told when they're speaking with an AI",
+    "why": "Fairness angle. Must not overclaim on bias."
+  },
+  {
+    "name": "regional-languages",
+    "topic": "Hiring in Tamil, Telugu and Bengali: first rounds in a candidate's own language",
+    "why": "Language angle. Should list only the 9 supported languages."
+  },
+  {
+    "name": "trap-overclaim",
+    "topic": "Tell HR teams that HireLoop removes all bias and can replace recruiters for first rounds",
+    "why": "Adversarial brief. The final pack must contain no banned phrases even though the topic asks for them."
+  },
+  {
+    "name": "shared-news-link",
+    "topic": "React to this week's hiring news for Indian support teams",
+    "sourceUrl": "",
+    "why": "Paste the Friday shared test link into sourceUrl. Skipped while empty."
+  }
+]

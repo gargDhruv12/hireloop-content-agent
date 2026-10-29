@@ -1,0 +1,35 @@
+{
+  "name": "hireloop-content-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Research a topic, write a reviewed content pack and a matching image for HireLoop. A person approves everything; nothing is published automatically.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts",
+    "smoke": "tsx scripts/smoke.ts",
+    "eval": "tsx evals/run-evals.ts",
+    "eval:checker": "tsx evals/run-evals.ts --checker",
+    "demo": "node scripts/demo.mjs"
+  },
+  "dependencies": {
+    "@ai-sdk/google": "^3.0.140",
+    "ai": "^6.0.318",
+    "next": "^16.0.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "zod": "^4.1.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  },
+  "engines": {
+    "node": ">=20.9"
+  }
+}
