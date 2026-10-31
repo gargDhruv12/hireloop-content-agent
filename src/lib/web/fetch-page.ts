@@ -4,7 +4,12 @@
  * come back thin, and the run says so instead of guessing.
  */
 
-import { isIP } from "node:net";
+import { lookup as dnsLookup } from "node:dns";
+import http from "node:http";
+import https from "node:https";
+import { isIP, type LookupFunction } from "node:net";
+import { Readable } from "node:stream";
+import zlib from "node:zlib";
 
 export interface PageText {
   url: string;
@@ -33,17 +38,10 @@ export async function fetchPage(rawUrl: string): Promise<PageText> {
     // Follow redirects by hand so every hop is checked: a public link must
     // not be able to bounce the agent to a private or local address.
     for (let hop = 0; ; hop++) {
-      await assertResolvesPublic(url);
       try {
-        res = await fetch(url, {
-          signal: controller.signal,
-          redirect: "manual",
-          headers: {
-            "user-agent": "HireLoopContentAgent/0.1 (+research bot for a student project)",
-            accept: "text/html,application/xhtml+xml",
-          },
-        });
+        res = await transport(url, controller.signal);
       } catch (err) {
+        if (err instanceof FetchPageError) throw err;
         throw new FetchPageError(
           controller.signal.aborted
             ? `Timed out after ${TIMEOUT_MS / 1000}s reading ${url.hostname}.`
@@ -52,6 +50,7 @@ export async function fetchPage(rawUrl: string): Promise<PageText> {
       }
       const location = res.headers.get("location");
       if (res.status < 300 || res.status >= 400 || !location) break;
+      await res.body?.cancel().catch(() => {});
       if (hop >= MAX_REDIRECTS) throw new FetchPageError(`${url.hostname} redirected too many times.`);
       url = assertPublicHttpUrl(new URL(location, url).toString());
     }
@@ -155,18 +154,84 @@ export function isPrivateIp(ip: string): boolean {
   );
 }
 
-/** A public-looking name can still point at a private machine; check where it resolves. */
-async function assertResolvesPublic(url: URL): Promise<void> {
-  const { lookup } = await import("node:dns/promises");
-  let addresses: { address: string }[];
-  try {
-    addresses = await lookup(url.hostname, { all: true });
-  } catch {
-    throw new FetchPageError(`Couldn't find ${url.hostname}. Check the link is spelled right.`);
-  }
-  if (addresses.some((a) => isPrivateIp(a.address))) {
-    throw new FetchPageError("Links to private or local addresses can't be read.");
-  }
+export type Transport = (url: URL, signal: AbortSignal) => Promise<Response>;
+
+const HEADERS = {
+  "user-agent": "HireLoopContentAgent/0.1 (+research bot for a student project)",
+  accept: "text/html,application/xhtml+xml",
+  "accept-encoding": "gzip, deflate, br",
+};
+
+type Resolve = (host: string) => Promise<{ address: string; family: number }[]>;
+
+const resolveAll: Resolve = (host) =>
+  new Promise((ok, fail) => dnsLookup(host, { all: true }, (err, addresses) => (err ? fail(err) : ok(addresses))));
+
+/**
+ * A DNS lookup for the socket that refuses private addresses. Checking the
+ * name first and then letting fetch resolve it again would leave a gap: a
+ * hostile DNS server can answer "public" to the check and 127.0.0.1 to the
+ * connection (DNS rebinding). Here the address that is checked is the
+ * address the socket connects to.
+ */
+export function safeLookup(resolve: Resolve = resolveAll): LookupFunction {
+  return (hostname, options, callback) => {
+    resolve(hostname).then(
+      (addresses) => {
+        if (!addresses.length) return callback(new FetchPageError(`Couldn't find ${hostname}.`), "", 0);
+        if (addresses.some((a) => isPrivateIp(a.address))) {
+          return callback(new FetchPageError("Links to private or local addresses can't be read."), "", 0);
+        }
+        const family = typeof options === "object" ? options.family : undefined;
+        const usable = family === 4 || family === 6 ? addresses.filter((a) => a.family === family) : addresses;
+        if (!usable.length) return callback(new FetchPageError(`Couldn't find ${hostname}.`), "", 0);
+        if (typeof options === "object" && options.all) {
+          (callback as unknown as (e: null, a: typeof usable) => void)(null, usable);
+        } else {
+          callback(null, usable[0].address, usable[0].family);
+        }
+      },
+      () => callback(new FetchPageError(`Couldn't find ${hostname}. Check the link is spelled right.`), "", 0),
+    );
+  };
+}
+
+/** One HTTP request (no redirects followed) through the checked DNS lookup. */
+export function pinnedRequest(url: URL, signal: AbortSignal, resolve?: Resolve): Promise<Response> {
+  const client = url.protocol === "https:" ? https : http;
+  return new Promise((ok, fail) => {
+    const req = client.request(url, { method: "GET", headers: HEADERS, signal, lookup: safeLookup(resolve) }, (res) => {
+      const headers = new Headers();
+      for (const [name, value] of Object.entries(res.headers)) {
+        if (value !== undefined) headers.set(name, Array.isArray(value) ? value.join(", ") : value);
+      }
+      const status = res.statusCode ?? 502;
+      if ([204, 205, 304].includes(status)) {
+        res.resume();
+        return ok(new Response(null, { status, headers }));
+      }
+      const encoding = (res.headers["content-encoding"] ?? "").toLowerCase();
+      const body: Readable =
+        encoding === "gzip" || encoding === "x-gzip"
+          ? res.pipe(zlib.createGunzip())
+          : encoding === "deflate"
+            ? res.pipe(zlib.createInflate())
+            : encoding === "br"
+              ? res.pipe(zlib.createBrotliDecompress())
+              : res;
+      if (body !== res) res.on("error", (e) => body.destroy(e));
+      ok(new Response(Readable.toWeb(body) as ReadableStream<Uint8Array>, { status, headers }));
+    });
+    req.on("error", fail);
+    req.end();
+  });
+}
+
+let transport: Transport = pinnedRequest;
+
+/** Tests swap the network out; call with no argument to restore it. */
+export function setTransport(next?: Transport): void {
+  transport = next ?? pinnedRequest;
 }
 
 /** Small, dependency-free HTML → text. Good enough for articles and marketing pages. */

@@ -26,7 +26,12 @@ create table if not exists hl_images (
   bytes bytea not null,
   created_at timestamptz not null default now()
 );
-create index if not exists hl_images_run_id on hl_images (run_id);`;
+create index if not exists hl_images_run_id on hl_images (run_id);
+create table if not exists hl_run_starts (
+  key text not null,
+  at timestamptz not null default now()
+);
+create index if not exists hl_run_starts_key_at on hl_run_starts (key, at);`;
 
 /** Drivers differ on whether jsonb comes back parsed; accept both. */
 function json<T>(value: unknown): T {
@@ -123,6 +128,20 @@ export function createSqlStore(db: SqlClient): RunStore {
       await migrate();
       const [row] = await db.query<{ bytes: Uint8Array }>("select bytes from hl_images where file = $1", [file]);
       return row ? Buffer.from(row.bytes) : null;
+    },
+
+    // Shared by every server instance. The advisory lock makes count-then-insert
+    // atomic per key, so parallel requests can't all slip under the limit.
+    async takeRunSlot(key, limit, windowMs) {
+      await migrate();
+      return db.transaction(async (tx) => {
+        await tx.query("select pg_advisory_xact_lock(hashtext($1))", [key]);
+        await tx.query("delete from hl_run_starts where at < now() - make_interval(secs => $1::float8)", [windowMs / 1000]);
+        const [row] = await tx.query<{ n: number | string }>("select count(*) as n from hl_run_starts where key = $1", [key]);
+        if (Number(row.n) >= limit) return false;
+        await tx.query("insert into hl_run_starts (key) values ($1)", [key]);
+        return true;
+      });
     },
   };
 }

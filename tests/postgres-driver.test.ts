@@ -68,3 +68,9 @@ test("image bytes survive the bytea round trip", async () => {
   const file = await store.saveImage(run.id, bytes, "image/png");
   assert.deepEqual(new Uint8Array((await store.readImage(file))!), bytes);
 });
+
+test("the run limit holds through the real driver", async () => {
+  // Advisory lock, interval maths and count(*) coming back as a string.
+  const taken = await Promise.all([1, 2, 3].map(() => store.takeRunSlot("wire", 2, 60_000)));
+  assert.equal(taken.filter(Boolean).length, 2);
+});

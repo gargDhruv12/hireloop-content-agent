@@ -68,3 +68,4 @@ export const updateRun = (id: string, change: (latest: Run) => Run | Promise<Run
 export const listRuns = (limit = 20): Promise<RunSummary[]> => getStore().listRuns(limit);
 export const saveImage = (runId: string, bytes: Uint8Array, mediaType: string) => getStore().saveImage(runId, bytes, mediaType);
 export const readImage = (file: string) => getStore().readImage(file);
+export const takeRunSlot = (key: string, limit: number, windowMs: number) => getStore().takeRunSlot(key, limit, windowMs);

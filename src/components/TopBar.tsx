@@ -1,10 +1,12 @@
+import Link from "next/link";
+
 export function TopBar({ title, mock, notice }: { title?: string; mock: boolean; notice?: string | null }) {
   return (
     <header className="topbar">
-      <a href="/" className="topbar__home">
+      <Link href="/" className="topbar__home">
         <span className="topbar__ring" aria-hidden />
         HireLoop content desk
-      </a>
+      </Link>
       <span className="topbar__title">{title}</span>
       <span className="topbar__meta">
         {notice && (
@@ -18,9 +20,9 @@ export function TopBar({ title, mock, notice }: { title?: string; mock: boolean;
           </span>
         )}
         {title && (
-          <a className="btn" href="/">
+          <Link className="btn" href="/">
             New pack
-          </a>
+          </Link>
         )}
       </span>
     </header>

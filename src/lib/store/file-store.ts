@@ -88,5 +88,16 @@ export function createFileStore(root = path.join(process.cwd(), ".data")): RunSt
     }
   }
 
-  return { kind: "file", saveRun, loadRun, updateRun, listRuns, saveImage, readImage };
+  // In memory, like the update lock: one machine, one process.
+  const runStarts = new Map<string, number[]>();
+
+  async function takeRunSlot(key: string, limit: number, windowMs: number): Promise<boolean> {
+    const since = Date.now() - windowMs;
+    const times = (runStarts.get(key) ?? []).filter((t) => t > since);
+    if (times.length >= limit) return false;
+    runStarts.set(key, [...times, Date.now()]);
+    return true;
+  }
+
+  return { kind: "file", saveRun, loadRun, updateRun, listRuns, saveImage, readImage, takeRunSlot };
 }

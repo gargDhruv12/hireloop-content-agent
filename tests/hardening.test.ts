@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { assertPublicHttpUrl, htmlToText, isPrivateIp } from "../src/lib/web/fetch-page";
+import { assertPublicHttpUrl, htmlToText, isPrivateIp, pinnedRequest, safeLookup } from "../src/lib/web/fetch-page";
 import { groundFacts, groundingProblem } from "../src/lib/content/grounding";
 import { lintPack } from "../src/lib/content/lint";
 import { approvedMarkdown } from "../src/lib/content/export";
@@ -109,4 +109,41 @@ test("the export lists the latest approval of each approved piece, with override
   assert.match(md, /## Review record/);
   assert.match(md, /\| blog \| .* \| 2 \| `cccccccccccc` \|/, "only the latest blog approval, showing the override");
   assert.doesNotMatch(md, /\| linkedin \|/, "a piece sent back to pending isn't listed");
+});
+
+test("the socket connects only to the address that passed the check (no DNS rebinding)", async () => {
+  // A local server stands in for an internal machine. The hostile DNS answers with its address.
+  const { createServer } = await import("node:http");
+  let hits = 0;
+  const server = createServer((_req, res) => {
+    hits++;
+    res.end("internal secrets");
+  });
+  await new Promise<void>((ok) => server.listen(0, "127.0.0.1", ok));
+  const port = (server.address() as { port: number }).port;
+  try {
+    const rebinding = async () => [{ address: "127.0.0.1", family: 4 }];
+    await assert.rejects(
+      pinnedRequest(new URL(`http://public.example:${port}/`), new AbortController().signal, rebinding),
+      /private or local/,
+    );
+    assert.equal(hits, 0);
+  } finally {
+    server.close();
+  }
+});
+
+test("the checked lookup passes public addresses through, honouring the requested family", async () => {
+  const lookup = safeLookup(async () => [
+    { address: "93.184.215.14", family: 4 },
+    { address: "2606:2800:21f:cb07:6820:80da:af6b:8b2c", family: 6 },
+  ]);
+  const one = await new Promise<[string, number]>((ok, fail) =>
+    lookup("example.com", { family: 6 }, (err, address, family) => (err ? fail(err) : ok([address as string, family as number]))),
+  );
+  assert.deepEqual(one, ["2606:2800:21f:cb07:6820:80da:af6b:8b2c", 6]);
+  const all = await new Promise<unknown>((ok, fail) =>
+    lookup("example.com", { all: true }, (err, addresses) => (err ? fail(err) : ok(addresses))),
+  );
+  assert.equal((all as unknown[]).length, 2);
 });

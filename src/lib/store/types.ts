@@ -22,6 +22,11 @@ export interface RunStore {
   listRuns(limit: number): Promise<RunSummary[]>;
   saveImage(runId: string, bytes: Uint8Array, mediaType: string): Promise<string>;
   readImage(file: string): Promise<Buffer | null>;
+  /**
+   * Record a run start for `key` (a hashed client address) if fewer than
+   * `limit` were recorded in the last `windowMs`. False means over the limit.
+   */
+  takeRunSlot(key: string, limit: number, windowMs: number): Promise<boolean>;
 }
 
 export const SAFE_RUN_ID = /^[a-z0-9-]{6,64}$/;

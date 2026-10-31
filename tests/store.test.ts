@@ -107,5 +107,19 @@ for (const [name, make] of backends) {
         cleanup();
       }
     });
+
+    test("run slots: parallel starts can't slip past the limit, and keys are separate", async () => {
+      const { store, cleanup } = make();
+      try {
+        const taken = await Promise.all(Array.from({ length: 6 }, () => store.takeRunSlot("addr-a", 3, 60_000)));
+        assert.equal(taken.filter(Boolean).length, 3);
+        assert.equal(await store.takeRunSlot("addr-b", 3, 60_000), true);
+        await delay(30);
+        // Starts older than the window no longer count.
+        assert.equal(await store.takeRunSlot("addr-a", 3, 10), true);
+      } finally {
+        cleanup();
+      }
+    });
   });
 }

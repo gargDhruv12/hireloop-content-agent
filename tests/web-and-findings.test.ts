@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { assertPublicHttpUrl, fetchPage, htmlToText } from "../src/lib/web/fetch-page";
+import { assertPublicHttpUrl, fetchPage, htmlToText, setTransport } from "../src/lib/web/fetch-page";
 import { mergeFindings, refreshAfterEdit } from "../src/lib/content/findings";
 import { hireloop } from "../src/clients/hireloop";
 import { mockFixtures } from "../src/lib/ai/mock";
@@ -59,12 +59,10 @@ test("editing the flagged words away clears the reviewer finding", () => {
 });
 
 test("a public link that redirects to a private address is refused", async () => {
-  const realFetch = globalThis.fetch;
-  globalThis.fetch = (async () =>
-    new Response(null, { status: 302, headers: { location: "http://169.254.169.254/latest/meta-data/" } })) as typeof fetch;
+  setTransport(async () => new Response(null, { status: 302, headers: { location: "http://169.254.169.254/latest/meta-data/" } }));
   try {
     await assert.rejects(fetchPage("http://93.184.215.14/article"), /private or local/);
   } finally {
-    globalThis.fetch = realFetch;
+    setTransport();
   }
 });

@@ -115,7 +115,7 @@ src/
       gemini.ts          the ONLY file that calls the AI SDK
       models.ts          model names from .env
       mock.ts            offline sample run (MOCK_AI=1)
-    web/fetch-page.ts    reads a web page as plain text (blocks private addresses)
+    web/fetch-page.ts    reads a web page as plain text (blocks private addresses, including via DNS rebinding)
     store/               runs and images: files in .data/ locally, Postgres when DATABASE_URL is set
                          (runs.ts picks the store; file-store.ts, sql-store.ts; review-log.ts)
   app/
@@ -176,9 +176,10 @@ npm run smoke:postgres # the same, on the Postgres store (in-memory PGlite, no s
 npm run eval           # runs every case in evals/cases.json against Gemini, writes a report
 npm run eval:checker   # plants 4 known problems and counts how many the checker catches
 npm run typecheck
+npm run lint           # ESLint with Next's core-web-vitals and TypeScript rules
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`) runs typecheck, tests, the offline smoke test and a production build on every push and pull request. None of them need an API key.
+GitHub Actions (`.github/workflows/ci.yml`) runs lint, typecheck, tests, both offline smoke tests and a production build on every push and pull request. None of them need an API key.
 
 `npm run eval` writes a table to `evals/results/` with, per case:
 
@@ -226,8 +227,7 @@ Add the Friday shared link to the `shared-news-link` case's `sourceUrl` before t
 - **Number tracing is literal.** "Two days" won't be matched against "48 hours", and small counting numbers (1–10) are ignored.
 - **Images can still drift**: odd hands, text in the frame, or a scene that doesn't fit India. Regenerate, or edit the brief.
 - **Images are stored in Postgres as bytes.** Fine for a team's volume (a few MB per pack); at large scale, move `saveImage`/`readImage` in `sql-store.ts` to object storage.
-- **The run limit is per server process.** It stops a runaway script, not a determined abuser. Keep a spend cap in Google AI Studio too.
-- **DNS rebinding.** The page reader checks where a host resolves before fetching, but `fetch` resolves it again; a hostile DNS server could answer differently the second time (issue #8).
+- **The run limit counts by address.** With `DATABASE_URL` it is shared by every server instance; without it, it is per process. It stops a runaway script, not someone rotating addresses. Keep a spend cap in Google AI Studio too.
 - **One client.** The code is client-agnostic (`src/clients/`), but the UI loads HireLoop.
 
 ---
