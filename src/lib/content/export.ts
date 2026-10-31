@@ -49,5 +49,13 @@ export function approvedMarkdown(run: Run, pack: ContentPack, imageFile?: string
       lines.push(`| ${e.piece} | ${new Date(e.at).toLocaleString("en-IN")} | ${by} | ${e.blockingAtDecision || "none"} | \`${e.textHash.slice(0, 12)}\` |`);
     }
   }
+  const sends = run.sendLog ?? [];
+  if (sends.length) {
+    lines.push("", "## Sent to the scheduler (as drafts)", "", "| Piece | Sent | To | By | Result |", "|---|---|---|---|---|");
+    for (const e of sends) {
+      const by = e.by ? `${e.by}${e.byVerified ? "" : " (unverified)"}` : "not recorded";
+      lines.push(`| ${e.piece} | ${new Date(e.at).toLocaleString("en-IN")} | ${e.to} | ${by} | ${e.ok ? "draft created" : `failed: ${e.error ?? "unknown"}`} |`);
+    }
+  }
   return lines.filter((l, i, all) => !(l === "" && all[i - 1] === "")).join("\n");
 }

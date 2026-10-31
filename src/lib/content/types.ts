@@ -98,11 +98,25 @@ export interface Run {
   review: Partial<Record<PieceId | "image", ReviewStatus>>;
   /** Every review decision, oldest first. Optional for older runs. */
   reviewLog?: ReviewLogEntry[];
+  /** Approved posts sent to the team's scheduler as drafts, failed attempts included. */
+  sendLog?: SendLogEntry[];
   timings: Partial<Record<StepName, number>>;
   /** Tokens this run used across all model calls (not counting later rewrites). Optional for older runs. */
   usage?: Usage;
   /** Hidden from the home page and the default list; kept, and can be restored. */
   archived?: boolean;
+}
+
+/** One attempt to send an approved post to the scheduler as a draft. */
+export interface SendLogEntry {
+  piece: PieceId;
+  /** The scheduler's name, e.g. "Buffer". */
+  to: string;
+  at: string;
+  ok: boolean;
+  error?: string;
+  by?: string;
+  byVerified?: boolean;
 }
 
 /** One review decision, recorded by the server so the export can show who signed off on what. */
