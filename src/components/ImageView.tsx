@@ -53,7 +53,7 @@ export function ImageView({
       <section className="paper">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
           <h2 style={{ margin: 0 }}>Image brief</h2>
-          <span className="stage__sub">
+          <span className="text-sm text-muted">
             {brief.aspectRatio} for {brief.channel}
           </span>
         </div>
@@ -78,7 +78,7 @@ export function ImageView({
           <dt>Avoid</dt>
           <dd>{brief.avoid.join("; ")}</dd>
         </dl>
-        <div className="decision" style={{ margin: "18px 0 0" }}>
+        <div className="mt-[18px] flex flex-wrap items-center gap-2">
           {editing ? (
             <>
               <button className="btn btn--primary" disabled={busy} onClick={() => onRegenerate(draft)}>
