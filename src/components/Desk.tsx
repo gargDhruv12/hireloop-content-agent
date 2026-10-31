@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ClientProfile } from "@/clients/types";
 import type { ContentPack, ImageBrief } from "@/lib/content/schemas";
 import type { Finding, PieceId, ReviewLogEntry, ReviewStatus, Run, SendLogEntry } from "@/lib/content/types";
@@ -53,8 +53,6 @@ export function Desk({
   const [showFirstDraft, setShowFirstDraft] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-  // Which way the last tab switch went, so the new view slides in from that side.
-  const [dir, setDir] = useState<"forward" | "back" | "none">("none");
 
   const pieces = useMemo(() => getPieces(pack), [pack]);
   const piece = pieces.find((p) => p.id === view);
@@ -112,8 +110,6 @@ export function Desk({
   function go(next: View) {
     if (next === view) return;
     if (dirty && !confirm("You have unsaved edits. Leave them?")) return;
-    const order: View[] = ["research", ...pieces.map((p) => p.id), "image"];
-    setDir(order.indexOf(next) > order.indexOf(view) ? "forward" : "back");
     if (dirty) {
       setPack(run.pack);
       setFindings(run.findings);
@@ -266,25 +262,17 @@ export function Desk({
   const total = pieces.length + 1;
   const groups: TabGroup[] = [
     { label: "Overview", tabs: [{ id: "research", label: "Research & plan", name: "Research & plan" }] },
-    ...CHANNEL_GROUPS.map((g) => ({
-      label: g.label,
-      tabs: pieces
-        .filter((p) => g.match(p.id))
-        .map((p) => ({
-          id: p.id as View,
-          label: g.short ? g.short(p.short) : p.short,
-          name: p.label,
-          status: run.review[p.id],
-          counts: counts(p.id),
-        })),
-    })),
+    {
+      label: "Drafts",
+      tabs: pieces.map((p) => ({ id: p.id as View, label: p.label, name: p.label, status: run.review[p.id], counts: counts(p.id) })),
+    },
     { label: "Visual", tabs: [{ id: "image", label: "Image", name: "Image", status: run.review.image }] },
   ];
 
   return (
     <>
       <div className="desk">
-        <PackBar
+        <Rail
           groups={groups}
           view={view}
           onGo={go}
@@ -301,28 +289,21 @@ export function Desk({
                 {busy === "download" ? "Preparing…" : "Download approved"}
               </button>
               {run.image && (
-                <a
-                  className="btn btn--glass"
-                  href={`/api/runs/${run.id}/image?download=1&v=${run.image.file}`}
-                  download={run.image.file}
-                  title="Download the image"
-                >
-                  Image
+                <a className="btn btn--quiet" href={`/api/runs/${run.id}/image?download=1&v=${run.image.file}`} download={run.image.file}>
+                  Download image
                 </a>
               )}
               <button
-                className="btn btn--glass"
-                title="Download the full run as JSON"
+                className="btn btn--quiet"
                 onClick={() => download(`${run.id}.json`, new Blob([JSON.stringify(run, null, 2)], { type: "application/json" }))}
               >
-                JSON
+                Download full run (JSON)
               </button>
             </>
           }
         />
 
-        {/* Keyed by view, so each switch replays the entrance animation from the side you moved towards. */}
-        <main className="stage" key={`stage-${view}`} data-dir={dir}>
+        <main className="stage">
           {error && (
             <p className="error" role="alert" style={{ display: "flex", gap: 12, alignItems: "baseline", marginTop: 0 }}>
               <span style={{ flex: 1 }}>{error}</span>
@@ -559,18 +540,10 @@ export function Desk({
   );
 }
 
-/** How the drafts are grouped in the tab bar, left to right. */
-const CHANNEL_GROUPS: { label: string; match: (id: PieceId) => boolean; short?: (s: string) => string }[] = [
-  { label: "Long form", match: (id) => id === "blog" },
-  { label: "Social", match: (id) => id === "linkedin" || id === "x" || id === "instagram" },
-  { label: "Meta ads", match: (id) => id.startsWith("meta-"), short: (s) => s.replace(/^Meta\s*/, "Ad ") },
-  { label: "Google ads", match: (id) => id.startsWith("google-"), short: (s) => s.replace(/^Google\s*/, "Ad ") },
-];
-
 interface Tab {
   id: View;
   label: string;
-  /** Spoken name: "Ad 1" alone doesn't say which channel. */
+  /** Spoken name; starts with the visible label. */
   name: string;
   status?: ReviewStatus;
   counts?: { block: number; warn: number };
@@ -582,11 +555,10 @@ interface TabGroup {
 }
 
 /**
- * The pack's navigation, across the top: approval progress, downloads, and
- * every piece as a tab, grouped by channel. A violet pill glides to the
- * current tab; arrow keys move between tabs.
+ * The pack's navigation, down the left: approval progress, every piece
+ * (overview, drafts, visual), then the downloads. Arrow keys move between pieces.
  */
-function PackBar({
+function Rail({
   groups,
   view,
   onGo,
@@ -601,73 +573,16 @@ function PackBar({
   total: number;
   actions: ReactNode;
 }) {
-  const track = useRef<HTMLDivElement>(null);
   const tabs = useRef(new Map<View, HTMLButtonElement>());
-  const [pill, setPill] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
-  // No glide on the first paint: the pill should start under the current tab, not fly in from the corner.
-  const [glide, setGlide] = useState(false);
   const order = groups.flatMap((g) => g.tabs.map((t) => t.id));
-  // Tab widths change when a badge appears or goes, so re-measure when they do.
-  const shape = groups.map((g) => g.tabs.map((t) => `${t.label}:${t.counts?.block ?? 0}:${t.counts?.warn ?? 0}`).join()).join("|");
-  // Once the page scrolls, fold the top row and labels so only the tabs stay pinned.
-  // Different thresholds for folding and unfolding stop it flickering at the edge.
-  const [stuck, setStuck] = useState(false);
 
+  // On phones the list is a sideways strip: keep the open piece in view.
   useEffect(() => {
-    const onScroll = () => setStuck((was) => (was ? window.scrollY > 8 : window.scrollY > 80));
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
-  useLayoutEffect(() => {
-    const box = track.current;
-    // Measured from the strip itself (not offsetLeft): an animating group would otherwise
-    // become the reference box and put the pill under the wrong tab.
-    const measure = () => {
-      const el = tabs.current.get(view);
-      if (!el || !box) return;
-      const a = el.getBoundingClientRect();
-      const b = box.getBoundingClientRect();
-      setPill({ left: a.left - b.left + box.scrollLeft, top: a.top - b.top + box.scrollTop, width: a.width, height: a.height });
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    if (box) {
-      ro.observe(box);
-      // The groups slide in on load; measure again once they've landed.
-      box.addEventListener("animationend", measure);
-    }
-    return () => {
-      ro.disconnect();
-      box?.removeEventListener("animationend", measure);
-    };
-  }, [view, shape, stuck]);
-
-  useEffect(() => {
-    if (!pill || glide) return;
-    const id = requestAnimationFrame(() => setGlide(true));
-    return () => cancelAnimationFrame(id);
-  }, [pill, glide]);
-
-  // On narrow screens the strip scrolls sideways; keep the current tab in view
-  // (centred, instantly on first load, smoothly after a switch).
-  const firstScroll = useRef(true);
-  useEffect(() => {
-    const el = tabs.current.get(view);
-    const box = track.current;
-    if (!el || !box) return;
-    const a = el.getBoundingClientRect();
-    const b = box.getBoundingClientRect();
-    if (a.left < b.left + 8 || a.right > b.right - 8) {
-      const centre = a.left - b.left + box.scrollLeft - (b.width - a.width) / 2;
-      box.scrollTo({ left: centre, behavior: firstScroll.current ? "auto" : "smooth" });
-    }
-    firstScroll.current = false;
+    tabs.current.get(view)?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [view]);
 
   function onKeyDown(e: React.KeyboardEvent) {
-    const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+    const step = e.key === "ArrowDown" || e.key === "ArrowRight" ? 1 : e.key === "ArrowUp" || e.key === "ArrowLeft" ? -1 : 0;
     const jump = e.key === "Home" ? order[0] : e.key === "End" ? order[order.length - 1] : null;
     const next = jump ?? (step ? order[(order.indexOf(view) + step + order.length) % order.length] : null);
     if (!next) return;
@@ -676,77 +591,55 @@ function PackBar({
     tabs.current.get(next)?.focus();
   }
 
-  const r = 20;
-  const circ = 2 * Math.PI * r;
-
   return (
-    <nav className="packbar" aria-label="Content pack" data-stuck={stuck}>
-      <div className="packbar__fold">
-        <div>
-          <div className="packbar__top">
-            <div className="packbar__progress">
-              <svg className="ring" viewBox="0 0 48 48" aria-hidden>
-                <circle className="ring__track" cx="24" cy="24" r={r} />
-                <circle
-                  className="ring__fill"
-                  cx="24"
-                  cy="24"
-                  r={r}
-                  strokeDasharray={circ}
-                  strokeDashoffset={circ * (1 - approved / total)}
-                  style={{ "--circ": circ } as React.CSSProperties}
-                />
-              </svg>
-              <div>
-                <b key={approved} className="packbar__count">
-                  {approved} of {total}
-                </b>
-                <span>approved</span>
-              </div>
-            </div>
-            <div className="packbar__actions">{actions}</div>
-          </div>
+    <nav className="rail" aria-label="Content pack">
+      <div className="rail__progress">
+        <span>
+          <b>
+            {approved} of {total}
+          </b>{" "}
+          approved
+        </span>
+        <div className="meter" role="progressbar" aria-label="Pieces approved" aria-valuemin={0} aria-valuemax={total} aria-valuenow={approved}>
+          <span style={{ width: `${(approved / total) * 100}%` }} />
         </div>
       </div>
 
-      <div className="tabs" ref={track} role="tablist" aria-label="Pieces" onKeyDown={onKeyDown}>
-        {pill && <span className="tabs__pill" data-glide={glide} style={{ transform: `translate(${pill.left}px, ${pill.top}px)`, width: pill.width, height: pill.height }} aria-hidden />}
-        {groups.map((g, gi) => (
-          <div className="tabs__group" key={g.label} style={{ "--i": gi } as React.CSSProperties}>
-            <span className="tabs__label" aria-hidden>
+      <div className="rail__list" role="tablist" aria-label="Pieces" aria-orientation="vertical" onKeyDown={onKeyDown}>
+        {groups.map((g) => (
+          <div className="rail__group" key={g.label}>
+            <div className="rail__heading" aria-hidden>
               {g.label}
-            </span>
-            <div className="tabs__row">
-              {g.tabs.map((t) => (
-                <button
-                  key={t.id}
-                  ref={(el) => {
-                    if (el) tabs.current.set(t.id, el);
-                    else tabs.current.delete(t.id);
-                  }}
-                  type="button"
-                  role="tab"
-                  className="tab"
-                  aria-selected={view === t.id}
-                  aria-label={tabName(t)}
-                  tabIndex={view === t.id ? 0 : -1}
-                  onClick={() => onGo(t.id)}
-                >
-                  {t.id !== "research" && <span key={t.status} className="status-dot" data-status={t.status ?? "pending"} aria-hidden />}
-                  <span>{t.label}</span>
-                  {/* Badge numbers are drawn by CSS, not text: the tab's label stays "Instagram", and its spoken name says the count. */}
-                  {t.counts && t.counts.block > 0 && (
-                    <span className="count count--block" data-n={t.counts.block} aria-hidden title={`${t.counts.block} blocking`} />
-                  )}
-                  {t.counts && t.counts.warn > 0 && (
-                    <span className="count count--warn" data-n={t.counts.warn} aria-hidden title={`${t.counts.warn} to consider`} />
-                  )}
-                </button>
-              ))}
             </div>
+            {g.tabs.map((t) => (
+              <button
+                key={t.id}
+                ref={(el) => {
+                  if (el) tabs.current.set(t.id, el);
+                  else tabs.current.delete(t.id);
+                }}
+                type="button"
+                role="tab"
+                className="rail__item"
+                aria-selected={view === t.id}
+                aria-label={tabName(t)}
+                tabIndex={view === t.id ? 0 : -1}
+                onClick={() => onGo(t.id)}
+              >
+                {t.id === "research" ? <span aria-hidden /> : <span className="status-dot" data-status={t.status ?? "pending"} aria-hidden />}
+                <span className="rail__label">{t.label}</span>
+                <span className="counts" aria-hidden>
+                  {/* Numbers drawn by CSS, not text: the visible label stays the label; the spoken name has the counts. */}
+                  {t.counts && t.counts.block > 0 && <span className="count count--block" data-n={t.counts.block} title={`${t.counts.block} blocking`} />}
+                  {t.counts && t.counts.warn > 0 && <span className="count count--warn" data-n={t.counts.warn} title={`${t.counts.warn} to consider`} />}
+                </span>
+              </button>
+            ))}
           </div>
         ))}
       </div>
+
+      <div className="rail__actions">{actions}</div>
     </nav>
   );
 }

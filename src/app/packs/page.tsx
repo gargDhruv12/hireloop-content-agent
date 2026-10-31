@@ -29,11 +29,11 @@ export default async function PacksPage() {
 
   return (
     <>
-      <TopBar mock={isMock()} notice={storageNotice()} title="All packs" />
-      <main className="home">
-        <div className="section-head">
-          <span className="chip">All packs</span>
-          <h1 className="packs__title">Every pack, newest first</h1>
+      <TopBar mock={isMock()} notice={storageNotice()} />
+      <main className="page">
+        <div className="page__head">
+          <h1>All packs</h1>
+          <p>Every pack, newest first. Archived packs are hidden until you filter for them.</p>
         </div>
         <PacksList rows={rows} />
       </main>
