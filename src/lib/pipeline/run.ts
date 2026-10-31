@@ -8,7 +8,7 @@
  * Nothing here publishes or sends anything.
  */
 import type { ClientProfile } from "@/clients/types";
-import { hireloop } from "@/clients/hireloop";
+import { clientById, isClientId } from "@/clients";
 import { countBlocking, lintPack } from "@/lib/content/lint";
 import { withPiece } from "@/lib/content/pieces";
 import type { Finding, PieceId, Run, RunEvent, RunInput, StepName } from "@/lib/content/types";
@@ -32,15 +32,17 @@ export function validateInput(raw: Partial<RunInput>): RunInput {
   if (topic.length > 300) throw new Error("Keep the topic under 300 characters. Put extra context in the notes.");
   const sourceUrl = raw.sourceUrl?.trim() || undefined;
   if (sourceUrl) assertPublicHttpUrl(sourceUrl);
+  if (raw.clientId !== undefined && !isClientId(raw.clientId)) throw new Error("That client isn't set up on this desk.");
   return {
     topic,
+    clientId: raw.clientId,
     sourceUrl,
     audience: raw.audience?.trim() || undefined,
     notes: raw.notes?.trim().slice(0, 12000) || undefined,
   };
 }
 
-export async function runPipeline(input: RunInput, emit: Emit, client: ClientProfile = hireloop): Promise<Run> {
+export async function runPipeline(input: RunInput, emit: Emit, client: ClientProfile = clientById(input.clientId)): Promise<Run> {
   const { result: run, usage } = await trackUsage(() => buildRun(input, emit, client));
   run.usage = usage;
   await saveRun(run);

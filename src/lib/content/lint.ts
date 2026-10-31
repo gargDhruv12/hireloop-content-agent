@@ -9,7 +9,7 @@ import type { Fact, Finding, PieceId } from "./types";
 import { BLOG_WORDS, HASHTAGS, X_POSTS, getPieces, wordCount, type Piece } from "./pieces";
 
 export interface LintOptions {
-  client: Pick<ClientProfile, "bannedPhrases">;
+  client: Pick<ClientProfile, "bannedPhrases" | "ctaPattern" | "primaryCta">;
   /** Facts with ids also get their citations checked. */
   facts: (Pick<Fact, "text"> & Partial<Pick<Fact, "id">>)[];
 }
@@ -103,7 +103,7 @@ export function lintPack(pack: ContentPack, opts: LintOptions): Finding[] {
       }
     }
 
-    findings.push(...structureChecks(piece, pack));
+    findings.push(...structureChecks(piece, pack, opts.client));
   }
 
   findings.push(...similarityChecks(pack));
@@ -113,9 +113,10 @@ export function lintPack(pack: ContentPack, opts: LintOptions): Finding[] {
 
 // ── Structure checks per channel ─────────────────────────────────────
 
-const CTA_RE = /\b(?:sample (?:ai )?interview|try (?:a |the )?sample|book a demo|talk to sales)\b/i;
-
-function structureChecks(piece: Piece, pack: ContentPack): Omit<Finding, "id">[] {
+/** Each client has its own call to action ("Try a sample AI interview", "Book a free trial class"). */
+function structureChecks(piece: Piece, pack: ContentPack, client: LintOptions["client"]): Omit<Finding, "id">[] {
+  const ctaRe = new RegExp(client.ctaPattern, "i");
+  const ctaWords = client.primaryCta.label.replace(/^\w/, (c) => c.toLowerCase());
   const out: Omit<Finding, "id">[] = [];
   const add = (f: Omit<Finding, "id" | "pieceId" | "by">) => out.push({ ...f, pieceId: piece.id, by: "rules" });
 
@@ -136,8 +137,8 @@ function structureChecks(piece: Piece, pack: ContentPack): Omit<Finding, "id">[]
       if (!/^##\s/m.test(pack.blog.body)) {
         add({ path: "blog.body", kind: "format", severity: "warn", message: "The article has no ## subheadings. Long posts are easier to skim with them." });
       }
-      if (!CTA_RE.test(pack.blog.body)) {
-        add({ path: "blog.body", kind: "missing_cta", severity: "warn", message: "The article never invites readers to try the sample AI interview." });
+      if (!ctaRe.test(pack.blog.body)) {
+        add({ path: "blog.body", kind: "missing_cta", severity: "warn", message: `The article never asks readers to ${ctaWords}.` });
       }
       break;
     }
@@ -145,7 +146,7 @@ function structureChecks(piece: Piece, pack: ContentPack): Omit<Finding, "id">[]
       if (pack.linkedin.body.length > 1300) {
         add({ path: "linkedin.body", kind: "length", severity: "warn", message: `The post is ${pack.linkedin.body.length} characters. LinkedIn posts under 1,300 tend to get read to the end.` });
       }
-      if (!CTA_RE.test(pack.linkedin.body)) {
+      if (!ctaRe.test(pack.linkedin.body)) {
         add({ path: "linkedin.body", kind: "missing_cta", severity: "warn", message: "The post has no call to action." });
       }
       break;

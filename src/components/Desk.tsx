@@ -29,7 +29,7 @@ export function Desk({
   cost = null,
 }: {
   initialRun: Run;
-  client: Pick<ClientProfile, "bannedPhrases" | "name">;
+  client: Pick<ClientProfile, "bannedPhrases" | "name" | "brand" | "ctaPattern" | "primaryCta">;
   /** Worked out on the server, where the rupee rate is configured. */
   cost?: Cost | null;
   initialView?: View;
@@ -396,6 +396,7 @@ export function Desk({
                   <Editor piece={piece} onChange={edit} />
                 ) : (
                   <Proof
+                    brand={{ ...client.brand, name: client.name.replace(/ \(sample\)$/, "") }}
                     piece={piece}
                     pack={pack}
                     marks={marks}

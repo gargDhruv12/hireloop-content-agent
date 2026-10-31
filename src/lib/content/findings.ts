@@ -33,7 +33,7 @@ export function mergeFindings(rules: Finding[], ai: Finding[]): Finding[] {
 export function refreshAfterEdit(
   pack: ContentPack,
   previous: Finding[],
-  client: Pick<ClientProfile, "bannedPhrases">,
+  client: Pick<ClientProfile, "bannedPhrases" | "ctaPattern" | "primaryCta">,
   facts: Pick<Fact, "text">[],
 ): Finding[] {
   const rules = lintPack(pack, { client, facts });

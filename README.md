@@ -209,6 +209,7 @@ Add the Friday shared link to the `shared-news-link` case's `sourceUrl` before t
 | `FALLBACK_TEXT_MODEL` | (empty) | Comma-separated models tried in order when the main one is overloaded or rate-limited, e.g. `gemini-3.5-flash,gemini-3.7-flash` |
 | `THINKING_LEVEL` | `low` | Gemini 3+ thinking level. `low` is much faster; raise it if quality drops |
 | `CLIENT_SITE_URL` | HireLoop demo site | The site the researcher reads live. `off` = fact sheet only |
+| `SAMPLE_CLIENT` | (on) | Shows the made-up *Brightpath Tutors (sample)* client in the picker, for demos; `off` hides it. Clients live in `src/clients/` |
 | `WEB_SEARCH` | (on) | Topic-only packs search the web for up to 3 sources; `off` turns it off. Google bills each search separately |
 | `APP_PASSWORD` | (empty) | **Set before deploying.** Every page and API route then asks for it (HTTP Basic, any user name) |
 | `APP_USERS` | (empty) | Named reviewers, `Name:password` pairs (or `Name:sha256:<hex>`), comma-separated. Each approval records who made it, shown on the piece and in the downloaded review record. With only `APP_PASSWORD`, names are as typed and marked unverified |
@@ -236,7 +237,7 @@ Add the Friday shared link to the `shared-news-link` case's `sourceUrl` before t
 - **Images can still drift**: odd hands, text in the frame, or a scene that doesn't fit India. Regenerate, or edit the brief.
 - **Images live in Postgres unless Blob is set up.** Fine for a team's volume (a few MB per pack); set `BLOB_READ_WRITE_TOKEN` to move new images to Vercel Blob. Old images aren't migrated; they keep loading from the database.
 - **The run limit counts by address.** With `DATABASE_URL` it is shared by every server instance; without it, it is per process. It stops a runaway script, not someone rotating addresses. Keep a spend cap in Google AI Studio too.
-- **One client.** The code is client-agnostic (`src/clients/`), but the UI loads HireLoop.
+- **Clients are code.** Each client is a profile in `src/clients/` (facts, voice, banned phrases, call to action, brand); add one there and register it in `src/clients/index.ts`. Offline mode always returns HireLoop's sample text, whatever the client.
 
 ---
 

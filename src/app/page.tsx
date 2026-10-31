@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { hireloop } from "@/clients/hireloop";
+import { clients } from "@/clients";
 import { BriefForm } from "@/components/BriefForm";
 import { TopBar } from "@/components/TopBar";
 import { isMock } from "@/lib/ai/models";
@@ -120,7 +120,7 @@ export default async function Home() {
               <span className="chip">New pack</span>
               <h2>What should HireLoop talk about this week?</h2>
             </div>
-            <BriefForm audiences={hireloop.audiences} />
+            <BriefForm clients={clients().map(({ id, name, audiences }) => ({ id, name, audiences }))} />
           </div>
 
           <aside className="night recent" id="recent">

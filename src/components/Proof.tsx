@@ -7,7 +7,16 @@ import { Marked, MarkdownMarked, type Mark } from "./Marked";
  * judge it as readers will see it: the fold on LinkedIn, the 280 limit on
  * X, the headline strip on a Meta ad, the blue link on Google.
  */
+export interface Brand {
+  name: string;
+  domain: string;
+  handle: string;
+  tagline: string;
+}
+
 export interface ProofProps {
+  /** How the client appears on each channel (name, domain, social handle). */
+  brand: Brand;
   piece: Piece;
   pack: ContentPack;
   marks: Record<string, Mark[]>;
@@ -63,12 +72,12 @@ function splitAtFold(text: string, at: number): [string, string] {
   return [text.slice(0, i), text.slice(i).replace(/^\s+/, "")];
 }
 
-function Author({ square = false, handle }: { square?: boolean; handle: string }) {
+function Author({ square = false, handle, name }: { square?: boolean; handle: string; name: string }) {
   return (
     <div className="post__author">
       <span className={`avatar${square ? " avatar--square" : ""}`} aria-hidden />
       <div>
-        <div className="post__name">HireLoop</div>
+        <div className="post__name">{name}</div>
         <div className="post__handle">{handle}</div>
       </div>
     </div>
@@ -80,7 +89,7 @@ function BlogProof(props: ProofProps) {
   return (
     <article className="proof proof--blog">
       <div className="serp" aria-label="How the post looks in search results">
-        <div className="serp__url">hireloop.in › blog</div>
+        <div className="serp__url">{props.brand.domain} › blog</div>
         <div className="serp__title">
           {t("blog.title")}
         </div>
@@ -108,7 +117,7 @@ function LinkedInProof(props: ProofProps) {
   const marks = props.marks[field.path] ?? [];
   return (
     <article className="proof post">
-      <Author handle="Company · AI interviews for first-round hiring" />
+      <Author name={props.brand.name} handle={`Company · ${props.brand.tagline}`} />
       <div className="copy">
         <Marked text={above} marks={marks} activeId={props.activeId} onSelect={props.onSelect} />
       </div>
@@ -134,7 +143,7 @@ function XProof(props: ProofProps) {
     <div className="thread">
       {props.piece.fields.map((field) => (
         <article className="proof post" key={field.path}>
-          <Author square handle="@hireloop" />
+          <Author square name={props.brand.name} handle={`@${props.brand.handle}`} />
           <div className="copy">
             <Marked text={field.value} marks={props.marks[field.path] ?? []} activeId={props.activeId} onSelect={props.onSelect} />
           </div>
@@ -161,12 +170,12 @@ function InstagramProof(props: ProofProps) {
   return (
     <article className="proof proof--ig">
       <div className="post" style={{ paddingBottom: 10 }}>
-        <Author handle="hireloop" />
+        <Author name={props.brand.name} handle={props.brand.handle} />
       </div>
       <Media url={props.imageUrl} alt={props.imageAlt} />
       <div className="post">
         <div className="copy" style={{ fontSize: 15.5 }}>
-          <b style={{ fontFamily: "var(--sans)" }}>hireloop</b>{" "}
+          <b style={{ fontFamily: "var(--sans)" }}>{props.brand.handle}</b>{" "}
           <Marked text={above} marks={marks} activeId={props.activeId} onSelect={props.onSelect} />
         </div>
         {below && (
@@ -197,7 +206,7 @@ function MetaProof(props: ProofProps) {
   return (
     <article className="proof proof--meta">
       <div className="post" style={{ paddingBottom: 12 }}>
-        <Author handle="Sponsored" />
+        <Author name={props.brand.name} handle="Sponsored" />
         <div className="copy" style={{ fontSize: 15.5 }}>
           {t(primary.path)}
         </div>
@@ -205,7 +214,7 @@ function MetaProof(props: ProofProps) {
       <Media url={props.imageUrl} alt={props.imageAlt} />
       <div className="meta-strip">
         <div className="meta-strip__text">
-          <div className="meta-strip__domain">hireloop.in</div>
+          <div className="meta-strip__domain">{props.brand.domain}</div>
           <div className="meta-strip__headline">
             {t(headline.path)}
           </div>
@@ -248,7 +257,7 @@ function GoogleProof(props: ProofProps) {
         <b>Sponsored</b>
       </div>
       <div className="gad__url">
-        hireloop.in › {p1.value} › {p2.value}
+        {props.brand.domain} › {p1.value} › {p2.value}
       </div>
       <div className="gad__headline">
         {heads.map((h, i) => (

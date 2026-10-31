@@ -14,7 +14,7 @@ const factIds = z
 export const ResearchSchema = z.object({
   topicSummary: z
     .string()
-    .describe("2–3 plain sentences: what the topic or article is about and why it matters to HireLoop's audience."),
+    .describe("2–3 plain sentences: what the topic or article is about and why it matters to the client's audience."),
   sourceFacts: z
     .array(
       z.object({
@@ -34,16 +34,16 @@ export const ResearchSchema = z.object({
     .describe("Facts from the client's live web pages that are NOT already in the client fact list. Empty if no pages were read."),
   relevantClientFactIds: z
     .array(z.string())
-    .describe("Ids of HireLoop facts (C1…) that genuinely connect to this topic, most relevant first."),
+    .describe("Ids of the client's facts (C1…) that genuinely connect to this topic, most relevant first."),
   cautions: z
     .array(z.string())
-    .describe("Things the writer must be careful about, e.g. 'The 40% figure is about the whole industry, not HireLoop'."),
+    .describe("Things the writer must be careful about, e.g. 'The 40% figure is about the whole industry, not the client'."),
 });
 
 // ── Plan ──────────────────────────────────────────────────────────────
 export const PlanSchema = z.object({
   audience: z.string().describe("The one reader this pack is written for."),
-  angle: z.string().describe("The single angle that connects the topic to HireLoop, in one sentence."),
+  angle: z.string().describe("The single angle that connects the topic to the client, in one sentence."),
   keyMessage: z.string().describe("The one thing the reader should remember, under 20 words."),
   factIds: z.array(z.string()).describe("2–5 fact ids the pack will lean on."),
   cta: z.string().describe("The call to action, usually the sample AI interview."),
@@ -96,7 +96,7 @@ export const ImageBriefSchema = z.object({
   scene: z.string().describe("What is in the frame: people, place, action, time of day."),
   composition: z.string().describe("Framing, camera angle, where the empty space is."),
   lighting: z.string(),
-  palette: z.string().describe("How HireLoop's colours appear, naturally, in the scene."),
+  palette: z.string().describe("How the brand colours appear, naturally, in the scene."),
   avoid: z.array(z.string()),
   aspectRatio: z.enum(["1:1", "4:5", "16:9"]).describe("1:1 for Instagram and Meta, 16:9 for blog and LinkedIn."),
   channel: z.string().describe("The channel this image is mainly for."),

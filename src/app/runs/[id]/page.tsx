@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { hireloop } from "@/clients/hireloop";
+import { clientById } from "@/clients";
 import { Desk, type View } from "@/components/Desk";
 import { PIECE_ORDER } from "@/lib/content/pieces";
 import { TopBar } from "@/components/TopBar";
@@ -35,7 +35,9 @@ export default async function RunPage({
       <Desk
         initialRun={run}
         initialView={initialView}
-        client={{ name: hireloop.name, bannedPhrases: hireloop.bannedPhrases }}
+        client={(({ name, bannedPhrases, brand, ctaPattern, primaryCta }) => ({ name, bannedPhrases, brand, ctaPattern, primaryCta }))(
+          clientById(run.input.clientId),
+        )}
         cost={runCost(run)}
       />
     </>
