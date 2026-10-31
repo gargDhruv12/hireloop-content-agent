@@ -1908,6 +1908,20 @@ a {
   .topbar__product {
     display: none;
   }
+  /* A status tag ("Offline sample mode", "Packs won't be kept") must not push the bar past the screen. */
+  .topbar__meta {
+    min-width: 0;
+  }
+  .topbar__meta .tag {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .home {
+    overflow-x: clip;
+  }
   .topbar-wrap {
     padding: 10px 12px 0;
   }
