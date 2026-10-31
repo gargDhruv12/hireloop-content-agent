@@ -209,6 +209,7 @@ Add the Friday shared link to the `shared-news-link` case's `sourceUrl` before t
 | `APP_PASSWORD` | (empty) | **Set before deploying.** Every page and API route then asks for it (HTTP Basic, any user name) |
 | `RUNS_PER_HOUR` | `20` | Packs one address can start per hour; `0` = no cap |
 | `DATABASE_URL` | (empty) | **Set for any hosted deployment.** A Postgres URL; runs and images are stored there and shared by every server instance. Empty = files in `.data/` |
+| `DATABASE_POOL_MAX` | `5` | Postgres connections per server instance. Lower it if your database caps connections |
 | `MOCK_AI` | `0` | `1` = offline sample mode, no API calls |
 
 **Rough cost:** about ₹7 of text per pack on Flash (about ₹18 on Argon) plus a few rupees per image, at October 2026 introductory prices. Check Google's pricing page; prices change. Set a spend cap in Google AI Studio.
