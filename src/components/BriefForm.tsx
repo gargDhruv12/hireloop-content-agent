@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { RunEvent, StepName } from "@/lib/content/types";
 
@@ -21,6 +22,7 @@ const EXAMPLES = [
 type StepState = { status: "waiting" | "running" | "done" | "skipped" | "failed"; detail?: string };
 
 export function BriefForm({ audiences }: { audiences: string[] }) {
+  const router = useRouter();
   const [topic, setTopic] = useState("");
   const [sourceUrl, setSourceUrl] = useState("");
   const [audience, setAudience] = useState(audiences[0]);
@@ -71,7 +73,7 @@ export function BriefForm({ audiences }: { audiences: string[] }) {
           if (event.type === "step") {
             setSteps((prev) => prev && { ...prev, [event.step]: { status: event.status, detail: event.detail ?? prev[event.step].detail } });
           } else if (event.type === "done") {
-            window.location.href = `/runs/${event.runId}`;
+            router.push(`/runs/${event.runId}`);
             return;
           } else if (event.type === "error") {
             throw new Error(event.message);

@@ -16,6 +16,26 @@ export function factSheet(facts: Fact[], onlyRelevant = false): string {
     .join("\n");
 }
 
+/**
+ * Without this, live runs built every pack from the fact sheet alone: the
+ * article the team pasted and the client's live site went unused.
+ */
+function sourceGuidance(facts: Fact[], step: "plan" | "write"): string {
+  const article = facts.some((f) => f.id.startsWith("S"));
+  const site = facts.some((f) => f.id.startsWith("W"));
+  if (!article && !site) return "";
+  const lines = ["", "Sources:"];
+  if (article) {
+    lines.push(
+      step === "plan"
+        ? "- S facts come from the article the team supplied: it is why this pack exists. Include 1–2 S facts in factIds, and let the angle respond to the article."
+        : "- S facts come from the article the team supplied. Use them to set up the problem or the context (the blog cites at least one), then show where the client fits. Attribute them as industry context, never as the client's results.",
+    );
+  }
+  if (site) lines.push("- W facts come from the client's live website and are current; prefer them over an older fact sheet line saying the same thing.");
+  return lines.join("\n");
+}
+
 function voiceBlock(client: ClientProfile): string {
   return [
     `Voice: ${client.voice.summary}`,
@@ -77,6 +97,7 @@ export function planPrompt(input: {
       "",
       "Facts you may use:",
       factSheet(input.facts),
+      sourceGuidance(input.facts, "plan"),
       input.cautions.length ? `\nCautions:\n${input.cautions.map((c) => `- ${c}`).join("\n")}` : "",
       `\nDefault call to action: ${client.primaryCta.label}. ${client.primaryCta.detail}`,
     ]
@@ -88,7 +109,7 @@ export function planPrompt(input: {
 // ── Write ────────────────────────────────────────────────────────────
 
 export const CHANNEL_RULES = `Channel rules (hard limits are enforced by a checker after you write):
-- Blog: 600–900 words of Markdown with ## subheadings. Title under ${LIMITS.blogTitle.max} characters. Meta description under ${LIMITS.blogMeta.max} characters. End with the call to action.
+- Blog: a full Markdown article of 700–900 words. Structure: an intro of 80–120 words, then 4–5 "## " sections of 150–200 words each (3 paragraphs: the problem, how it plays out, a practical takeaway), then a closing paragraph with the call to action. A per-section budget matters: asked only for a total, models stop near 400 words, and they write sections about a third shorter than asked. Title under ${LIMITS.blogTitle.max} characters. Meta description under ${LIMITS.blogMeta.max} characters. End with the call to action.
 - LinkedIn: under 1,300 characters. First line is a hook that works alone. Short paragraphs. No hashtag wall (0–3 hashtags).
 - X thread: 4–6 posts, each at most ${LIMITS.xPost.max} characters including spaces and emoji. Post 1 is the hook.
 - Instagram: caption under 600 characters, first 125 characters carry the message, 3–6 hashtags without the # sign.
@@ -126,6 +147,7 @@ export function writePrompt(input: {
       "",
       "Facts (lead with these ids: " + plan.factIds.join(", ") + "):",
       factSheet(input.facts),
+      sourceGuidance(input.facts, "write"),
       input.cautions.length ? `\nCautions:\n${input.cautions.map((c) => `- ${c}`).join("\n")}` : "",
       "",
       `Image style for the brief: ${client.visual.style}`,

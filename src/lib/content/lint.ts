@@ -10,15 +10,50 @@ import { BLOG_WORDS, HASHTAGS, X_POSTS, getPieces, wordCount, type Piece } from 
 
 export interface LintOptions {
   client: Pick<ClientProfile, "bannedPhrases">;
-  facts: Pick<Fact, "text">[];
+  /** Facts with ids also get their citations checked. */
+  facts: (Pick<Fact, "text"> & Partial<Pick<Fact, "id">>)[];
 }
 
 export function lintPack(pack: ContentPack, opts: LintOptions): Finding[] {
   const findings: Omit<Finding, "id">[] = [];
   const allowedNumbers = numbersInFacts(opts.facts);
   const banned = opts.client.bannedPhrases.map((b) => ({ re: new RegExp(b.pattern, "gi"), reason: b.reason }));
+  const knownIds = new Set(opts.facts.map((f) => f.id).filter((id): id is string => !!id));
 
   for (const piece of getPieces(pack)) {
+    // 0. Citations: the margin shows the cited facts as the evidence, so they must exist.
+    if (knownIds.size) {
+      const unknown = piece.factIds.filter((id) => !knownIds.has(id));
+      if (unknown.length) {
+        findings.push({
+          pieceId: piece.id,
+          kind: "citation",
+          severity: "block",
+          message: `Cites ${unknown.join(", ")}, which ${unknown.length === 1 ? "isn't a fact" : "aren't facts"} from this run. Its claims can't be traced.`,
+          by: "rules",
+        });
+      }
+      if (piece.id === "blog" && [...knownIds].some((id) => id.startsWith("S")) && !piece.factIds.some((id) => id.startsWith("S"))) {
+        findings.push({
+          pieceId: piece.id,
+          kind: "citation",
+          severity: "warn",
+          message: "Doesn't use the article you supplied. Cite at least one of its facts (S…), or drop the link.",
+          by: "rules",
+        });
+      }
+      const hasNumbers = piece.fields.some((f) => f.kind !== "choice" && extractNumbers(f.value).length > 0);
+      if (!piece.factIds.length && hasNumbers) {
+        findings.push({
+          pieceId: piece.id,
+          kind: "citation",
+          severity: "warn",
+          message: "Uses numbers but cites no facts. Check where each number comes from.",
+          by: "rules",
+        });
+      }
+    }
+
     for (const field of piece.fields) {
       // 1. Length
       if (field.limit && field.value.length > field.limit.max) {
@@ -90,9 +125,12 @@ function structureChecks(piece: Piece, pack: ContentPack): Omit<Finding, "id">[]
       if (words < BLOG_WORDS.min || words > BLOG_WORDS.max) {
         add({
           path: "blog.body",
-          kind: "format",
+          kind: "length",
           severity: "warn",
-          message: `The article is ${words} words. Aim for ${BLOG_WORDS.min}–${BLOG_WORDS.max}.`,
+          message:
+            words < BLOG_WORDS.min
+              ? `The article is ${words} words; the brief is 700–900. Add depth to the thinnest sections (about ${BLOG_WORDS.min - words}+ words), using only the facts given.`
+              : `The article is ${words} words; the brief is 700–900. Tighten it.`,
         });
       }
       if (!/^##\s/m.test(pack.blog.body)) {

@@ -21,7 +21,8 @@ export const LIMITS = {
   blogMeta: { max: 155, hard: false },
 } as const;
 
-export const BLOG_WORDS = { min: 450, max: 1300 };
+// The writer is asked for 700–900; this range is when the checker steps in.
+export const BLOG_WORDS = { min: 650, max: 1100 };
 export const X_POSTS = { min: 3, max: 8 };
 export const HASHTAGS = { soft: 6, hard: 30 };
 export const META_CTAS = ["Learn more", "Sign up", "Book now", "Contact us", "Get quote"] as const;
@@ -192,6 +193,19 @@ export function pieceLocation(id: PieceId): { key: keyof ContentPack; index?: nu
   if (id === "instagram") return { key: "instagram" };
   const [kind, n] = id.split("-");
   return { key: kind === "meta" ? "metaAds" : "googleAds", index: Number(n) - 1 };
+}
+
+/** A copy of `target` with one piece taken from `source`. */
+export function withPiece(target: ContentPack, source: ContentPack, piece: PieceId): ContentPack {
+  const { key, index } = pieceLocation(piece);
+  const next = structuredClone(target);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const from = source as any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  if (index === undefined) (next as any)[key] = structuredClone(from[key]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  else (next as any)[key][index] = structuredClone(from[key][index]);
+  return next;
 }
 
 /** Plain text of a whole piece, for prompts and exports. */

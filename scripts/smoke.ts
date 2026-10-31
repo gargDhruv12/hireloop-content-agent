@@ -18,6 +18,14 @@ const dir = mkdtempSync(path.join(tmpdir(), "hireloop-smoke-"));
 process.chdir(dir);
 
 async function main() {
+  // --postgres: the same journey on the Postgres store (an in-memory PGlite database).
+  if (process.argv.includes("--postgres")) {
+    const { setStore } = await import("../src/lib/store/runs");
+    const { createSqlStore } = await import("../src/lib/store/sql-store");
+    const { pgliteClient } = await import("../tests/pglite-client");
+    setStore(createSqlStore(pgliteClient()));
+    console.log("store     ", "postgres (PGlite)");
+  }
   const runs = await import("../src/app/api/runs/route");
   const one = await import("../src/app/api/runs/[id]/route");
   const piece = await import("../src/app/api/runs/[id]/pieces/[pieceId]/route");
@@ -40,9 +48,10 @@ async function main() {
   const ctx = { params: Promise.resolve({ id: done.runId }) };
   let run = await (await one.GET(new Request("http://x"), ctx)).json();
 
-  // 3. The checker caught the three planted problems and the agent fixed them.
-  assert.deepEqual(run.revision.pieces, ["linkedin", "meta-2", "google-2"]);
+  // 3. The checker caught the three planted problems and the short blog, and the agent fixed them.
+  assert.deepEqual(run.revision.pieces, ["blog", "linkedin", "meta-2", "google-2"]);
   assert.equal(run.revision.blockingAfter, 0);
+  assert.ok(!run.findings.some((f: { pieceId: string; kind: string }) => f.pieceId === "blog" && f.kind === "length"), "short blog expanded");
   assert.ok(run.findings.some((f: { pieceId: string; by: string }) => f.pieceId === "instagram" && f.by === "ai"), "tone note kept");
   console.log("revision  ", `${run.revision.blockingBefore} blocking → ${run.revision.blockingAfter}`);
   console.log("findings  ", run.findings.map((f: { pieceId: string; kind: string; severity: string }) => `${f.pieceId}/${f.kind}/${f.severity}`).join(", "));
@@ -62,6 +71,13 @@ async function main() {
   // 6. Approvals are saved.
   run = await (await one.PATCH(new Request("http://x", { ...json({ review: { blog: "approved", image: "approved" } }), method: "PATCH" }), ctx)).json();
   assert.equal(run.review.blog, "approved");
+  // ...and recorded by the server, with a hash of the text that was approved.
+  const blogLog = run.reviewLog.find((e: { piece: string; status: string }) => e.piece === "blog" && e.status === "approved");
+  assert.match(blogLog?.textHash ?? "", /^[0-9a-f]{64}$/);
+  // Approving a piece that still has a blocking note is allowed but logged as an override.
+  run = await (await one.PATCH(new Request("http://x", { ...json({ review: { linkedin: "approved" } }), method: "PATCH" }), ctx)).json();
+  assert.ok(run.reviewLog.at(-1).blockingAtDecision > 0, "override of a blocking note is recorded");
+  console.log("review    ", "approvals logged with text hashes; override recorded");
 
   // 7. Rewriting one piece works and sends it back to pending.
   const ctxPiece = { params: Promise.resolve({ id: done.runId, pieceId: "google-2" }) };
@@ -93,6 +109,7 @@ async function main() {
   const zipText = zip.toString("latin1");
   assert.ok(zipText.includes("approved.md") && /image\.(svg|png|jpg|webp)/.test(zipText), "zip has the Markdown and the image");
   assert.ok(zipText.includes("![") && zipText.includes("## Blog post"), "Markdown links the image and has the blog");
+  assert.ok(zipText.includes("## Review record"), "Markdown includes the review record");
   console.log("export    ", `zip ${zip.length} bytes with approved.md and the image`);
   const dl = await image.GET(new Request("http://x?download=1"), ctx);
   assert.match(dl.headers.get("content-disposition") ?? "", /^attachment/);
@@ -109,5 +126,11 @@ main()
   .finally(() => {
     // Windows can't delete the folder the process is standing in.
     process.chdir(startDir);
-    if (!process.exitCode) rmSync(dir, { recursive: true, force: true });
+    if (process.exitCode) return;
+    try {
+      // Antivirus or a lingering handle can hold a fresh file for a moment on Windows (EBUSY).
+      rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+    } catch (err) {
+      console.warn("Couldn't delete the temporary folder (the test still passed):", (err as Error).message);
+    }
   });

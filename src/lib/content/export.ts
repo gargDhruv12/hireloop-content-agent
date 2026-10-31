@@ -36,6 +36,17 @@ export function approvedMarkdown(run: Run, pack: ContentPack, imageFile?: string
   if (facts.length) {
     lines.push("## Sources for the claims above", "");
     for (const f of facts) lines.push(`- **${f.id}** ${f.text} (${f.ref})`);
+    lines.push("");
+  }
+  // The latest approval of each exported piece: when, over how many blocking notes, and a hash of the approved text.
+  const signoffs = [...(run.reviewLog ?? [])]
+    .reverse()
+    .filter((e, i, all) => e.status === "approved" && run.review[e.piece] === "approved" && all.findIndex((x) => x.piece === e.piece) === i);
+  if (signoffs.length) {
+    lines.push("## Review record", "", "| Piece | Approved | Blocking notes overridden | Text SHA-256 |", "|---|---|---|---|");
+    for (const e of signoffs.reverse()) {
+      lines.push(`| ${e.piece} | ${new Date(e.at).toLocaleString("en-IN")} | ${e.blockingAtDecision || "none"} | \`${e.textHash.slice(0, 12)}\` |`);
+    }
   }
   return lines.filter((l, i, all) => !(l === "" && all[i - 1] === "")).join("\n");
 }

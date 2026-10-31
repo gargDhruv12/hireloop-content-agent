@@ -60,7 +60,7 @@ flowchart LR
     R --> P[2 Plan]
     P --> W[3 Write]
     W --> C[4 Check]
-    C -->|anything blocking?| V[5 Revise once]
+    C -->|anything blocking?| V[5 Revise]
     C -->|all clear| I
     V --> I[6 Image]
     I --> H[Person reviews,<br/>edits, approves]
@@ -69,11 +69,11 @@ flowchart LR
 
 | Step | What happens | Model | File |
 |---|---|---|---|
-| **1. Research** | Reads the news link. If `CLIENT_SITE_URL` is set, an agent loop with a `fetch_page` tool browses the client site and picks the relevant pages. Extracts facts and gives each an id. | Gemini Flash + tool | `src/lib/pipeline/research.ts` |
+| **1. Research** | Reads the news link and HireLoop's live site (always the home page; if it links to more pages, an agent loop with a `fetch_page` tool picks the relevant ones, staying under the client's path). Extracts facts and gives each an id. **Grounding:** a fact is kept only if its quote is really in the page it came from and it adds no number the quote doesn't have; dropped facts are listed in the Research view. Footnote markers and acronym asides like "(AI)" don't count as a mismatch. The plan and writer are told to build on the article (S facts) and prefer live-site facts (W); a blog that ignores a supplied article gets a warning. | Gemini Flash + tool | `src/lib/pipeline/research.ts`, `src/lib/content/grounding.ts` |
 | **2. Plan** | Picks one audience, one angle, a key message and 2–5 facts to lean on. | Gemini Flash | `src/lib/pipeline/write.ts` |
-| **3. Write** | Writes all 10 pieces and an image brief in one structured call, so every channel tells the same story. | Gemini Flash (or Argon) | `src/lib/pipeline/write.ts` |
-| **4. Check** | **Rules** (plain code): character limits, banned phrases, numbers not found in any fact, missing call to action, near-identical ads. **Reviewer** (a separate model call that didn't write the drafts): unsupported or overstated claims, off-brand tone. | Code + Gemini Flash | `src/lib/content/lint.ts`, `src/lib/pipeline/check.ts` |
-| **5. Revise** | Rewrites only the pieces with blocking problems, once, then checks again. Remaining problems are left for the person. | Gemini Flash | `src/lib/pipeline/run.ts` |
+| **3. Write** | Writes the 10 pieces and the image brief in four calls at the same time (blog · social posts · ads · image brief), all from the same plan. Smaller calls survive "model overloaded" far better than one giant call, and the blog gets its own output budget. | Gemini Flash (or Argon) | `src/lib/pipeline/write.ts` |
+| **4. Check** | **Rules** (plain code): character limits, banned phrases, numbers not found in any fact, cited fact ids that don't exist, missing call to action, near-identical ads. **Reviewer** (a separate model call that didn't write the drafts): unsupported or overstated claims, off-brand tone. | Code + Gemini Flash | `src/lib/content/lint.ts`, `src/lib/pipeline/check.ts` |
+| **5. Revise** | Rewrites only the pieces with blocking problems (and a blog under 650 words), in parallel, then checks again (the reviewer re-reads only the rewritten pieces). A piece still blocked gets one more targeted pass. Remaining problems are left for the person. | Gemini Flash | `src/lib/pipeline/run.ts` |
 | **6. Image** | Turns the writer's image brief into a prompt and calls a separate image model. If it fails, the text still arrives. | Nano Banana 2.1 | `src/lib/pipeline/image.ts` |
 
 Every fact has an id the drafts must cite:
@@ -115,8 +115,9 @@ src/
       gemini.ts          the ONLY file that calls the AI SDK
       models.ts          model names from .env
       mock.ts            offline sample run (MOCK_AI=1)
-    web/fetch-page.ts    reads a web page as plain text (blocks private addresses)
-    store/runs.ts        saves runs and images as files in .data/
+    web/fetch-page.ts    reads a web page as plain text (blocks private addresses, including via DNS rebinding)
+    store/               runs and images: files in .data/ locally, Postgres when DATABASE_URL is set
+                         (runs.ts picks the store; file-store.ts, sql-store.ts; review-log.ts)
   app/
     page.tsx             new pack form + recent packs
     runs/[id]/page.tsx   the review desk
@@ -140,11 +141,11 @@ docs/                    channel rules, Friday demo script
 
 **The reviewer model didn't write the drafts.** It gets the drafts and the fact list with a different job: find problems. It isn't asked to grade its own work.
 
-**Self-revision happens once.** One automatic fix catches most mistakes. Looping until "perfect" burns credits and can drift. Whatever is still wrong is shown to the person, not hidden.
+**Self-revision is capped at two passes.** The first fixes most mistakes; the second retries only pieces still blocked (live, a rewrite sometimes fixed one ad line and pushed another a character over). Looping until "perfect" burns credits and can drift. Whatever is still wrong is shown to the person, not hidden.
 
 **Drafts are shown in the shape of their channel.** The LinkedIn preview marks where "…see more" cuts in; Google ads look like a search result with a character count per line. People judge copy better when they see it as readers will.
 
-**Blocking problems disable Approve.** A reviewer can still override (the checker can be wrong), but it is a deliberate extra click.
+**Blocking problems disable Approve.** A reviewer can still override (the checker can be wrong), but it is a deliberate extra click. The server records every decision (time, blocking notes overridden, and a SHA-256 of the exact text approved), and the download carries that review record.
 
 **The AI SDK lives in one file.** `src/lib/ai/gemini.ts` is the only file that imports `ai` or `@ai-sdk/google`. We pinned AI SDK v6 because v7 renamed several functions; upgrading, or switching to OpenAI, means editing one file.
 
@@ -169,12 +170,16 @@ Tip: `?view=linkedin` (or `blog`, `x`, `meta-2`, `google-1`, `image`…) in the 
 ## Testing and evaluation
 
 ```bash
-npm test               # unit tests: rules checker, page reader, findings (no API calls)
+npm test               # unit tests: rules checker, page reader, grounding, citations, review record (no API calls)
 npm run smoke          # the whole workflow end to end, offline, through the real API routes
+npm run smoke:postgres # the same, on the Postgres store (in-memory PGlite, no server needed)
 npm run eval           # runs every case in evals/cases.json against Gemini, writes a report
 npm run eval:checker   # plants 4 known problems and counts how many the checker catches
 npm run typecheck
+npm run lint           # ESLint with Next's core-web-vitals and TypeScript rules
 ```
+
+GitHub Actions (`.github/workflows/ci.yml`) runs lint, typecheck, tests, both offline smoke tests and a production build on every push and pull request. None of them need an API key.
 
 `npm run eval` writes a table to `evals/results/` with, per case:
 
@@ -198,12 +203,19 @@ Add the Friday shared link to the `shared-news-link` case's `sourceUrl` before t
 | `TEXT_MODEL` | `gemini-3.8-flash` | Research, plan, check, revise |
 | `WRITER_MODEL` | `gemini-3.8-flash` | Writing the pack. Try `gemini-4-argon` for comparison |
 | `IMAGE_MODEL` | `gemini-nano-banana-2.1` | The picture |
-| `CLIENT_SITE_URL` | (empty) | If set, the researcher browses the live client site |
+| `FALLBACK_TEXT_MODEL` | (empty) | Comma-separated models tried in order when the main one is overloaded or rate-limited, e.g. `gemini-3.5-flash,gemini-3.7-flash` |
+| `THINKING_LEVEL` | `low` | Gemini 3+ thinking level. `low` is much faster; raise it if quality drops |
+| `CLIENT_SITE_URL` | HireLoop demo site | The site the researcher reads live. `off` = fact sheet only |
+| `APP_PASSWORD` | (empty) | **Set before deploying.** Every page and API route then asks for it (HTTP Basic, any user name) |
+| `RUNS_PER_HOUR` | `20` | Packs one address can start per hour; `0` = no cap |
+| `DATABASE_URL` | (empty) | **Set for any hosted deployment.** A Postgres URL; runs and images are stored there and shared by every server instance. Empty = files in `.data/` |
 | `MOCK_AI` | `0` | `1` = offline sample mode, no API calls |
 
 **Rough cost:** about ₹7 of text per pack on Flash (about ₹18 on Argon) plus a few rupees per image, at October 2026 introductory prices. Check Google's pricing page; prices change. Set a spend cap in Google AI Studio.
 
-**Data:** runs and images are saved as files in `.data/` (ignored by git). Since October 2026, new paid-tier Gemini projects store requests by default; switch that off in AI Studio → Logs and datasets if you don't want it.
+**Data:** locally, runs and images are saved as files in `.data/` (ignored by git). With `DATABASE_URL` they go to two Postgres tables, `hl_runs` (the run as JSONB) and `hl_images` (bytes), created on first use. Edits lock the run's row, so approvals and rewrites from different server instances can't overwrite each other. On Vercel without `DATABASE_URL`, the app warns in the top bar that packs won't be kept.
+
+**Free tier:** the Gemini free tier allows 20 requests per model per day, and one pack makes about 10. Enable billing on the key for real use. Since October 2026, new paid-tier Gemini projects store requests by default; switch that off in AI Studio → Logs and datasets if you don't want it.
 
 ---
 
@@ -214,7 +226,8 @@ Add the Friday shared link to the `shared-news-link` case's `sourceUrl` before t
 - **The checker is not a guarantee.** The rules only catch what they're written for, and the AI reviewer can miss a claim or flag a fine one. That's why a person approves everything.
 - **Number tracing is literal.** "Two days" won't be matched against "48 hours", and small counting numbers (1–10) are ignored.
 - **Images can still drift**: odd hands, text in the frame, or a scene that doesn't fit India. Regenerate, or edit the brief.
-- **Storage is local files.** On Vercel the `.data/` folder doesn't persist between requests. For a hosted demo, swap `src/lib/store/runs.ts` for Vercel Blob or Supabase.
+- **Images are stored in Postgres as bytes.** Fine for a team's volume (a few MB per pack); at large scale, move `saveImage`/`readImage` in `sql-store.ts` to object storage.
+- **The run limit counts by address.** With `DATABASE_URL` it is shared by every server instance; without it, it is per process. It stops a runaway script, not someone rotating addresses. Keep a spend cap in Google AI Studio too.
 - **One client.** The code is client-agnostic (`src/clients/`), but the UI loads HireLoop.
 
 ---

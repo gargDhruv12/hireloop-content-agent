@@ -197,6 +197,23 @@ Try a 10-minute sample AI interview, link in bio.`,
 
 /** Fixed versions of the three pieces the checker should block. */
 const fixed: Partial<Record<string, unknown>> = {
+  // The draft blog is short of the 650-word floor on purpose, so offline runs show the expansion.
+  blog: {
+    ...draft.blog,
+    body: blogBody.replace(
+      /\n## /,
+      `
+## Fair by design, not by promise
+
+Fairness in a first round usually depends on who picks up the phone and how their day is going. By the fortieth call, questions drift, notes get shorter and two candidates with the same answer can walk away with different outcomes. Nobody intends it; it is simply what happens when people repeat the same conversation all week.
+
+A structured first round removes most of that drift. Every candidate gets the same questions and is scored on the same rubric, with the reasons shown next to each score. Your team decides what the rubric rewards, so the standard is theirs, applied the same way at 10 AM and at 11 PM.
+
+The practical takeaway: write the rubric before the drive starts, and review a handful of scored transcripts in the first week. If a score looks wrong, change the rubric, not the candidate.
+
+## `,
+    ),
+  },
   linkedin: {
     ...draft.linkedin,
     body: draft.linkedin.body.replace(
@@ -255,7 +272,8 @@ export function mockStructured(task: MockTask, prompt: string): unknown {
       return { findings: aiFindings.filter((f) => prompt.includes(f.excerpt)) };
     case "revise": {
       const id = /PIECE_ID: ([a-z0-9-]+)/.exec(prompt)?.[1] ?? "";
-      if (fixed[id]) return structuredClone(fixed[id]);
+      const revised = fixed[id];
+      if (revised) return structuredClone(revised);
       throw new Error(`Mock has no revised version of ${id}.`);
     }
     default:

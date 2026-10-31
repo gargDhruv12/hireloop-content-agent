@@ -28,7 +28,17 @@ export async function makePlan(args: {
   return generateStructured({ task: "plan", schema: PlanSchema, system, prompt });
 }
 
-/** Step 3 · Writer: the whole pack in one structured call, so the pieces share one angle. */
+/**
+ * The pack is written in four calls that run at the same time. One call for
+ * the whole pack was the step most likely to fail: in live runs it was the
+ * one that hit "model overloaded" on every model, and a dropped call lost all
+ * the work. Smaller calls finish sooner and each gets its full output budget,
+ * so the blog isn't squeezed by nine other pieces. The shared plan keeps one
+ * angle across them.
+ */
+const WRITE_GROUPS: (keyof ContentPack)[][] = [["blog"], ["linkedin", "xThread", "instagram"], ["metaAds", "googleAds"], ["imageBrief"]];
+
+/** Step 3 · Writer: every piece from the same plan, audience, angle and facts. */
 export async function writePack(args: {
   client: ClientProfile;
   run: RunInput;
@@ -37,8 +47,20 @@ export async function writePack(args: {
   cautions: string[];
 }): Promise<ContentPack> {
   const { system, prompt } = writePrompt(args);
-  const pack = await generateStructured({ task: "write", schema: ContentPackSchema, system, prompt, role: "writer" });
-  return normalisePack(pack);
+  const parts = await Promise.all(
+    WRITE_GROUPS.map((keys) =>
+      generateStructured({
+        task: "write",
+        schema: ContentPackSchema.pick(Object.fromEntries(keys.map((k) => [k, true])) as { [K in keyof ContentPack]?: true }),
+        system,
+        prompt: `${prompt}\n\nWrite ONLY these parts of the pack now: ${keys.join(", ")}. The other parts are written at the same time from the same plan, so stay on its angle and key message.`,
+        role: "writer",
+      }),
+    ),
+  );
+  // Take each group's own keys (the offline sample returns the whole pack for every call).
+  const merged = Object.fromEntries(WRITE_GROUPS.flatMap((keys, i) => keys.map((k) => [k, (parts[i] as Partial<ContentPack>)[k]])));
+  return normalisePack(ContentPackSchema.parse(merged));
 }
 
 const PIECE_SCHEMAS = {

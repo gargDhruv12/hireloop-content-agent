@@ -53,7 +53,9 @@ export const PlanSchema = z.object({
 export const BlogSchema = z.object({
   title: z.string(),
   metaDescription: z.string().describe("Under 155 characters."),
-  body: z.string().describe("Markdown. 600–900 words. Use ## subheadings. End with the call to action."),
+  body: z
+    .string()
+    .describe("Markdown, 700–900 words: an 80–120 word intro, 4–5 ## sections of 130–180 words each, then a closing paragraph with the call to action."),
   factIds,
 });
 

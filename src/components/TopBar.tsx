@@ -1,21 +1,28 @@
-export function TopBar({ title, mock }: { title?: string; mock: boolean }) {
+import Link from "next/link";
+
+export function TopBar({ title, mock, notice }: { title?: string; mock: boolean; notice?: string | null }) {
   return (
     <header className="topbar">
-      <a href="/" className="topbar__home">
+      <Link href="/" className="topbar__home">
         <span className="topbar__ring" aria-hidden />
         HireLoop content desk
-      </a>
+      </Link>
       <span className="topbar__title">{title}</span>
       <span className="topbar__meta">
+        {notice && (
+          <span className="tag tag--offline" title={notice} role="status">
+            Packs won&apos;t be kept
+          </span>
+        )}
         {mock && (
           <span className="tag tag--offline" title="MOCK_AI=1: no API calls, sample output">
             Offline sample mode
           </span>
         )}
         {title && (
-          <a className="btn" href="/">
+          <Link className="btn" href="/">
             New pack
-          </a>
+          </Link>
         )}
       </span>
     </header>

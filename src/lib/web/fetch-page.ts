@@ -4,6 +4,13 @@
  * come back thin, and the run says so instead of guessing.
  */
 
+import { lookup as dnsLookup } from "node:dns";
+import http from "node:http";
+import https from "node:https";
+import { isIP, type LookupFunction } from "node:net";
+import { Readable } from "node:stream";
+import zlib from "node:zlib";
+
 export interface PageText {
   url: string;
   title: string;
@@ -31,17 +38,10 @@ export async function fetchPage(rawUrl: string): Promise<PageText> {
     // Follow redirects by hand so every hop is checked: a public link must
     // not be able to bounce the agent to a private or local address.
     for (let hop = 0; ; hop++) {
-      await assertResolvesPublic(url);
       try {
-        res = await fetch(url, {
-          signal: controller.signal,
-          redirect: "manual",
-          headers: {
-            "user-agent": "HireLoopContentAgent/0.1 (+research bot for a student project)",
-            accept: "text/html,application/xhtml+xml",
-          },
-        });
+        res = await transport(url, controller.signal);
       } catch (err) {
+        if (err instanceof FetchPageError) throw err;
         throw new FetchPageError(
           controller.signal.aborted
             ? `Timed out after ${TIMEOUT_MS / 1000}s reading ${url.hostname}.`
@@ -50,6 +50,7 @@ export async function fetchPage(rawUrl: string): Promise<PageText> {
       }
       const location = res.headers.get("location");
       if (res.status < 300 || res.status >= 400 || !location) break;
+      await res.body?.cancel().catch(() => {});
       if (hop >= MAX_REDIRECTS) throw new FetchPageError(`${url.hostname} redirected too many times.`);
       url = assertPublicHttpUrl(new URL(location, url).toString());
     }
@@ -60,7 +61,7 @@ export async function fetchPage(rawUrl: string): Promise<PageText> {
       throw new FetchPageError(`That link is a ${type || "non-HTML"} file, not a web page. Paste a link to an article.`);
     }
     try {
-      html = (await res.text()).slice(0, MAX_BYTES);
+      html = await readCapped(res, MAX_BYTES);
     } catch (err) {
       throw new FetchPageError(
         controller.signal.aborted ? `Timed out after ${TIMEOUT_MS / 1000}s reading ${url.hostname}.` : `Couldn't read ${url.hostname}: ${(err as Error).message}`,
@@ -79,6 +80,30 @@ export async function fetchPage(rawUrl: string): Promise<PageText> {
   return page;
 }
 
+/** Read at most `max` bytes of the body, so a huge or endless response can't fill memory. */
+async function readCapped(res: Response, max: number): Promise<string> {
+  if (!res.body) return "";
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  while (size < max) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    size += value.byteLength;
+  }
+  await reader.cancel().catch(() => {});
+  const bytes = new Uint8Array(Math.min(size, max));
+  let offset = 0;
+  for (const c of chunks) {
+    const part = c.subarray(0, bytes.length - offset);
+    bytes.set(part, offset);
+    offset += part.length;
+    if (offset >= bytes.length) break;
+  }
+  return new TextDecoder().decode(bytes);
+}
+
 /** Allow only public http(s) URLs, so the agent can't be pointed at internal machines. */
 export function assertPublicHttpUrl(raw: string): URL {
   let url: URL;
@@ -90,20 +115,30 @@ export function assertPublicHttpUrl(raw: string): URL {
   if (url.protocol !== "https:" && url.protocol !== "http:") {
     throw new FetchPageError("Only http and https links can be read.");
   }
-  const host = url.hostname.toLowerCase();
+  // URL keeps IPv6 literals in brackets ("[::1]"); strip them so the IP checks see the address.
+  const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
   const privateHost =
     host === "localhost" ||
     host.endsWith(".localhost") ||
     host.endsWith(".local") ||
     host.endsWith(".internal") ||
-    isPrivateIp(host) ||
-    host.startsWith("[");
+    isPrivateIp(host);
   if (privateHost) throw new FetchPageError("Links to private or local addresses can't be read.");
   return url;
 }
 
-function isPrivateIp(ip: string): boolean {
-  const v4 = ip.replace(/^::ffff:/i, "");
+/**
+ * True only for IP literals in a private, loopback or link-local range.
+ * Hostnames are never IPs: testing them against the IPv6 prefixes blocked
+ * real sites such as fda.gov and the client's own fde-….chatgpt.site.
+ */
+export function isPrivateIp(ip: string): boolean {
+  if (!isIP(ip)) return false;
+  // IPv4-mapped IPv6, in either the dotted form or the hex form URL normalises to (::ffff:7f00:1).
+  const hex = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i.exec(ip);
+  const v4 = hex
+    ? [parseInt(hex[1], 16) >> 8, parseInt(hex[1], 16) & 255, parseInt(hex[2], 16) >> 8, parseInt(hex[2], 16) & 255].join(".")
+    : ip.replace(/^::ffff:/i, "");
   return (
     /^0\./.test(v4) ||
     /^127\./.test(v4) ||
@@ -119,26 +154,93 @@ function isPrivateIp(ip: string): boolean {
   );
 }
 
-/** A public-looking name can still point at a private machine; check where it resolves. */
-async function assertResolvesPublic(url: URL): Promise<void> {
-  const { lookup } = await import("node:dns/promises");
-  let addresses: { address: string }[];
-  try {
-    addresses = await lookup(url.hostname, { all: true });
-  } catch {
-    throw new FetchPageError(`Couldn't find ${url.hostname}. Check the link is spelled right.`);
-  }
-  if (addresses.some((a) => isPrivateIp(a.address))) {
-    throw new FetchPageError("Links to private or local addresses can't be read.");
-  }
+export type Transport = (url: URL, signal: AbortSignal) => Promise<Response>;
+
+const HEADERS = {
+  "user-agent": "HireLoopContentAgent/0.1 (+research bot for a student project)",
+  accept: "text/html,application/xhtml+xml",
+  "accept-encoding": "gzip, deflate, br",
+};
+
+type Resolve = (host: string) => Promise<{ address: string; family: number }[]>;
+
+const resolveAll: Resolve = (host) =>
+  new Promise((ok, fail) => dnsLookup(host, { all: true }, (err, addresses) => (err ? fail(err) : ok(addresses))));
+
+/**
+ * A DNS lookup for the socket that refuses private addresses. Checking the
+ * name first and then letting fetch resolve it again would leave a gap: a
+ * hostile DNS server can answer "public" to the check and 127.0.0.1 to the
+ * connection (DNS rebinding). Here the address that is checked is the
+ * address the socket connects to.
+ */
+export function safeLookup(resolve: Resolve = resolveAll): LookupFunction {
+  return (hostname, options, callback) => {
+    resolve(hostname).then(
+      (addresses) => {
+        if (!addresses.length) return callback(new FetchPageError(`Couldn't find ${hostname}.`), "", 0);
+        if (addresses.some((a) => isPrivateIp(a.address))) {
+          return callback(new FetchPageError("Links to private or local addresses can't be read."), "", 0);
+        }
+        const family = typeof options === "object" ? options.family : undefined;
+        const usable = family === 4 || family === 6 ? addresses.filter((a) => a.family === family) : addresses;
+        if (!usable.length) return callback(new FetchPageError(`Couldn't find ${hostname}.`), "", 0);
+        if (typeof options === "object" && options.all) {
+          (callback as unknown as (e: null, a: typeof usable) => void)(null, usable);
+        } else {
+          callback(null, usable[0].address, usable[0].family);
+        }
+      },
+      () => callback(new FetchPageError(`Couldn't find ${hostname}. Check the link is spelled right.`), "", 0),
+    );
+  };
+}
+
+/** One HTTP request (no redirects followed) through the checked DNS lookup. */
+export function pinnedRequest(url: URL, signal: AbortSignal, resolve?: Resolve): Promise<Response> {
+  const client = url.protocol === "https:" ? https : http;
+  return new Promise((ok, fail) => {
+    const req = client.request(url, { method: "GET", headers: HEADERS, signal, lookup: safeLookup(resolve) }, (res) => {
+      const headers = new Headers();
+      for (const [name, value] of Object.entries(res.headers)) {
+        if (value !== undefined) headers.set(name, Array.isArray(value) ? value.join(", ") : value);
+      }
+      const status = res.statusCode ?? 502;
+      if ([204, 205, 304].includes(status)) {
+        res.resume();
+        return ok(new Response(null, { status, headers }));
+      }
+      const encoding = (res.headers["content-encoding"] ?? "").toLowerCase();
+      const body: Readable =
+        encoding === "gzip" || encoding === "x-gzip"
+          ? res.pipe(zlib.createGunzip())
+          : encoding === "deflate"
+            ? res.pipe(zlib.createInflate())
+            : encoding === "br"
+              ? res.pipe(zlib.createBrotliDecompress())
+              : res;
+      if (body !== res) res.on("error", (e) => body.destroy(e));
+      ok(new Response(Readable.toWeb(body) as ReadableStream<Uint8Array>, { status, headers }));
+    });
+    req.on("error", fail);
+    req.end();
+  });
+}
+
+let transport: Transport = pinnedRequest;
+
+/** Tests swap the network out; call with no argument to restore it. */
+export function setTransport(next?: Transport): void {
+  transport = next ?? pinnedRequest;
 }
 
 /** Small, dependency-free HTML → text. Good enough for articles and marketing pages. */
 export function htmlToText(html: string, baseUrl: string): PageText {
   const title = decode(match(html, /<title[^>]*>([\s\S]*?)<\/title>/i) ?? "").trim();
   const description = decode(
-    match(html, /<meta[^>]+name=["']description["'][^>]*content=["']([^"']*)["']/i) ??
-      match(html, /<meta[^>]+property=["']og:description["'][^>]*content=["']([^"']*)["']/i) ??
+    // Close on the same quote that opened the value, so "HireLoop's …" isn't cut at the apostrophe.
+    match(html, /<meta[^>]+name=["']description["'][^>]*content=(["'])([\s\S]*?)\1/i, 2) ??
+      match(html, /<meta[^>]+property=["']og:description["'][^>]*content=(["'])([\s\S]*?)\1/i, 2) ??
       "",
   ).trim();
 
@@ -164,12 +266,15 @@ export function htmlToText(html: string, baseUrl: string): PageText {
     body
       .replace(/<(script|style|noscript|svg|nav|footer|form|iframe|template)[\s\S]*?<\/\1>/gi, " ")
       .replace(/<!--[\s\S]*?-->/g, " ")
+      // Wikipedia-style footnote links and "[edit]" buttons are noise to the model.
+      .replace(/<sup[^>]*class=["'][^"']*reference[^"']*["'][^>]*>[\s\S]*?<\/sup>/gi, " ")
       .replace(/<(h[1-6])[^>]*>/gi, "\n\n## ")
       .replace(/<li[^>]*>/gi, "\n- ")
       .replace(/<(br|\/p|\/div|\/h[1-6]|\/li|\/tr|\/section)[^>]*>/gi, "\n")
       .replace(/<[^>]+>/g, " "),
   )
     .replace(/[ \t\f\v ]+/g, " ")
+    .replace(/ ?\[ ?edit ?\]/gi, "")
     .replace(/ *\n */g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim()
@@ -178,8 +283,8 @@ export function htmlToText(html: string, baseUrl: string): PageText {
   return { url: baseUrl, title, description, text, links };
 }
 
-function match(s: string, re: RegExp): string | undefined {
-  return re.exec(s)?.[1];
+function match(s: string, re: RegExp, group = 1): string | undefined {
+  return re.exec(s)?.[group];
 }
 
 const ENTITIES: Record<string, string> = {

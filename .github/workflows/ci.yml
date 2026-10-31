@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      # The whole workflow through the real API routes, offline (MOCK_AI=1), no key needed.
+      - run: npm run smoke
+      # Same journey on the Postgres store (in-memory PGlite).
+      - run: npm run smoke:postgres
+      - run: npm run build
+        env:
+          MOCK_AI: "1"
