@@ -42,6 +42,8 @@
   --warn-ink: #6b5400;
   --traced: #1f7a4d;
   --traced-wash: #e7f4ec;
+  /* Fill behind white text (Approve): deep enough for 4.5:1 in both themes. */
+  --approve: #1f7a4d;
 
   --serif: var(--font-serif), "Source Serif 4", Georgia, serif;
   --sans: var(--font-sans), "Plus Jakarta Sans", system-ui, sans-serif;
@@ -278,8 +280,8 @@ a {
 }
 
 .btn--approve {
-  background: var(--traced);
-  border-color: var(--traced);
+  background: var(--approve);
+  border-color: var(--approve);
   color: #fff;
 }
 
@@ -574,6 +576,10 @@ a {
   display: inline-grid;
   place-items: center;
   font-weight: 600;
+}
+
+.count[data-n]::before {
+  content: attr(data-n);
 }
 
 .count--block {
@@ -947,7 +953,7 @@ a {
 .counter {
   font-family: var(--sans);
   font-size: 12px;
-  color: var(--faint);
+  color: var(--graphite);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
