@@ -216,6 +216,7 @@ Add the Friday shared link to the `shared-news-link` case's `sourceUrl` before t
 | `USD_INR` | `95` | Rupees per dollar for the cost shown on each pack. Model prices live in `src/lib/ai/pricing.ts` (Google's listed Standard prices, checked 31 Oct 2026) |
 | `DATABASE_URL` | (empty) | **Set for any hosted deployment.** A Postgres URL; runs and images are stored there and shared by every server instance. Empty = files in `.data/` |
 | `DATABASE_POOL_MAX` | `5` | Postgres connections per server instance. Lower it if your database caps connections |
+| `BLOB_READ_WRITE_TOKEN` | (empty) | Store generated images in Vercel Blob (private: no public URL, served only through the app) instead of the database. Images saved earlier still load |
 | `MOCK_AI` | `0` | `1` = offline sample mode, no API calls |
 
 **Rough cost:** about ₹7 of text per pack on Flash (about ₹18 on Argon) plus a few rupees per image, at October 2026 introductory prices. Check Google's pricing page; prices change. Set a spend cap in Google AI Studio.
@@ -233,7 +234,7 @@ Add the Friday shared link to the `shared-news-link` case's `sourceUrl` before t
 - **The checker is not a guarantee.** The rules only catch what they're written for, and the AI reviewer can miss a claim or flag a fine one. That's why a person approves everything.
 - **Number tracing knows units, not meaning.** Durations compare in hours ("two days" = "48 hours", but "15-minute" ≠ "15 hours"), and lakh, crore and k are scaled. It can't tell that "about two days" is a rounding of "45 hours", and bare counting numbers (1–10, "three ways") are ignored.
 - **Images can still drift**: odd hands, text in the frame, or a scene that doesn't fit India. Regenerate, or edit the brief.
-- **Images are stored in Postgres as bytes.** Fine for a team's volume (a few MB per pack); at large scale, move `saveImage`/`readImage` in `sql-store.ts` to object storage.
+- **Images live in Postgres unless Blob is set up.** Fine for a team's volume (a few MB per pack); set `BLOB_READ_WRITE_TOKEN` to move new images to Vercel Blob. Old images aren't migrated; they keep loading from the database.
 - **The run limit counts by address.** With `DATABASE_URL` it is shared by every server instance; without it, it is per process. It stops a runaway script, not someone rotating addresses. Keep a spend cap in Google AI Studio too.
 - **One client.** The code is client-agnostic (`src/clients/`), but the UI loads HireLoop.
 

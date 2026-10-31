@@ -1,6 +1,7 @@
 import type { Run } from "@/lib/content/types";
 import { createFileStore } from "./file-store";
 import { createSqlStore, type SqlClient } from "./sql-store";
+import { vercelBlobs, withBlobImages } from "./blob-images";
 import type { RunStore, RunSummary } from "./types";
 
 /**
@@ -16,6 +17,8 @@ function getStore(): RunStore {
   const url = process.env.DATABASE_URL;
   // DATA_DIR moves the file store (the browser tests use a throwaway folder).
   store = url ? createSqlStore(postgresClient(url)) : createFileStore(process.env.DATA_DIR || undefined);
+  // BLOB_READ_WRITE_TOKEN: images go to Vercel Blob (private) instead of the database.
+  if (process.env.BLOB_READ_WRITE_TOKEN) store = withBlobImages(store, vercelBlobs());
   if (!url && process.env.VERCEL) {
     console.warn("[store] Running on Vercel without DATABASE_URL: runs are saved to temporary disk and will be lost.");
   }
