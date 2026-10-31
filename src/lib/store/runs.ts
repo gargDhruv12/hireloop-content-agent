@@ -16,7 +16,12 @@ function getStore(): RunStore {
   if (store) return store;
   const url = process.env.DATABASE_URL;
   // DATA_DIR moves the file store (the browser tests use a throwaway folder).
-  store = url ? createSqlStore(postgresClient(url)) : createFileStore(process.env.DATA_DIR || undefined);
+  // On Neon, DATABASE_URL is the pooled connection (PgBouncer, transaction mode) for the
+  // app's queries; DATABASE_URL_UNPOOLED is the direct one, used only to create the tables.
+  const direct = process.env.DATABASE_URL_UNPOOLED;
+  store = url
+    ? createSqlStore(postgresClient(url), direct && direct !== url ? postgresClient(direct, 1) : undefined)
+    : createFileStore(process.env.DATA_DIR || undefined);
   // BLOB_READ_WRITE_TOKEN: images go to Vercel Blob (private) instead of the database.
   if (process.env.BLOB_READ_WRITE_TOKEN) store = withBlobImages(store, vercelBlobs());
   if (!url && process.env.VERCEL) {
@@ -37,14 +42,16 @@ export function storageNotice(): string | null {
 }
 
 /** Connects lazily, so local file mode never loads the driver. */
-function postgresClient(url: string): SqlClient {
+function postgresClient(url: string, max = Number(process.env.DATABASE_POOL_MAX) || 5): SqlClient {
   type Sql = import("postgres").Sql;
   let sql: Promise<Sql> | null = null;
   const connect = () =>
     (sql ??= import("postgres").then(({ default: postgres }) =>
       // Small pool: serverless functions each open their own connections.
       // DATABASE_POOL_MAX lowers it further (some hosts cap connections per database).
-      postgres(url, { max: Number(process.env.DATABASE_POOL_MAX) || 5, idle_timeout: 20, prepare: false }),
+      // prepare: false because PgBouncer's transaction mode can't keep prepared statements.
+      // onnotice: "table already exists, skipping" on every cold start is not worth a log line.
+      postgres(url, { max, idle_timeout: 20, prepare: false, onnotice: () => {} }),
     ));
   const wrap = (run: (text: string, params: unknown[]) => Promise<unknown>): SqlClient => ({
     query: async (text, params = []) => (await run(text, params)) as never,

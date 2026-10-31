@@ -28,6 +28,8 @@ export default defineConfig({
     url: `http://localhost:${PORT}`,
     reuseExistingServer: false,
     timeout: 60_000,
-    env: { MOCK_AI: "1", DATA_DIR: ".data-e2e", APP_PASSWORD: "", RUNS_PER_HOUR: "0" },
+    // DATABASE_URL is blanked so tests never write to the Neon database that .env.local
+    // points at: Next.js doesn't let .env.local override a variable that is already set.
+    env: { MOCK_AI: "1", DATA_DIR: ".data-e2e", APP_PASSWORD: "", APP_USERS: "", RUNS_PER_HOUR: "0", DATABASE_URL: "", DATABASE_URL_UNPOOLED: "", BLOB_READ_WRITE_TOKEN: "", SCHEDULER_WEBHOOK_URL: "" },
   },
 });
