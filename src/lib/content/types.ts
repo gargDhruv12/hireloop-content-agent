@@ -22,6 +22,8 @@ export interface ResearchResult {
   pagesRead: { url: string; title: string; chars: number; ok: boolean; error?: string }[];
   /** Whether the client's live site was read this run. Optional for older runs. */
   clientSite?: { status: "off" } | { status: "read"; url: string; pages: number } | { status: "failed"; url: string; error: string };
+  /** Where the outside sources (S facts) came from. Optional for older runs. */
+  sourceKind?: "link" | "pasted" | "search" | "none";
 }
 
 export type FindingKind =
@@ -122,4 +124,6 @@ export interface Usage {
   outputTokens: number;
   byModel?: Record<string, { inputTokens: number; outputTokens: number }>;
   images?: number;
+  /** Google Search calls (topic-only packs). Google bills these separately from tokens. */
+  searches?: number;
 }

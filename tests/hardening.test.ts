@@ -173,7 +173,7 @@ test("a blog that ignores the supplied article gets a warning", () => {
   const warn = lintPack(pack, { client: hireloop, facts }).find((f) => f.pieceId === "blog" && f.kind === "citation");
   assert.equal(warn?.severity, "warn");
   pack.blog.factIds = ["C8", "S1"];
-  assert.ok(!lintPack(pack, { client: hireloop, facts }).some((f) => f.pieceId === "blog" && /article you supplied/.test(f.message)));
+  assert.ok(!lintPack(pack, { client: hireloop, facts }).some((f) => f.pieceId === "blog" && /outside sources/.test(f.message)));
 });
 
 test("a quote stitched with an ellipsis passes only when every part is on the page, in order", () => {

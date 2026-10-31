@@ -28,8 +28,8 @@ function sourceGuidance(facts: Fact[], step: "plan" | "write"): string {
   if (article) {
     lines.push(
       step === "plan"
-        ? "- S facts come from the article the team supplied: it is why this pack exists. Include 1–2 S facts in factIds, and let the angle respond to the article."
-        : "- S facts come from the article the team supplied. Use them to set up the problem or the context (the blog cites at least one), then show where the client fits. Attribute them as industry context, never as the client's results.",
+        ? "- S facts come from outside sources (the article the team supplied, or pages found by web search): they are why this pack is timely. Include 1–2 S facts in factIds, and let the angle respond to them."
+        : "- S facts come from outside sources (the article the team supplied, or pages found by web search). Use them to set up the problem or the context (the blog cites at least one), then show where the client fits. Attribute them as industry context, never as the client's results.",
     );
   }
   if (site) lines.push("- W facts come from the client's live website and are current; prefer them over an older fact sheet line saying the same thing.");
@@ -51,12 +51,16 @@ function voiceBlock(client: ClientProfile): string {
 export function researchPrompt(input: {
   client: ClientProfile;
   run: RunInput;
-  source?: PageText;
+  sources: PageText[];
+  sourceKind: "link" | "pasted" | "search" | "none";
   clientPages: PageText[];
 }): { system: string; prompt: string } {
-  const { client, run, source, clientPages } = input;
+  const { client, run, sources, sourceKind, clientPages } = input;
+  // One article gets more room than each of several search results.
+  const perSource = sources.length > 1 ? 6000 : 14000;
+  const heading = sourceKind === "search" ? "Pages found by web search (no article was supplied)" : "Article supplied by the team";
   return {
-    system: `You are the research step of a content agent for ${client.name}. You extract facts; you never invent them. Copy numbers exactly. If the article is about other companies or the whole industry, say so in a caution so the writer doesn't attribute it to ${client.name}.`,
+    system: `You are the research step of a content agent for ${client.name}. You extract facts; you never invent them. Copy numbers exactly, and copy each quote from one page. If a source is about other companies or the whole industry, say so in a caution so the writer doesn't attribute it to ${client.name}.`,
     prompt: [
       `Topic: ${run.topic}`,
       run.notes ? `Notes from the team: ${run.notes}` : "",
@@ -64,9 +68,9 @@ export function researchPrompt(input: {
       `## ${client.name} fact sheet (already verified)`,
       client.facts.map((f) => `[${f.id}] ${f.text}`).join("\n"),
       "",
-      source
-        ? `## Article supplied by the team\nURL: ${source.url}\nTitle: ${source.title}\n\n${source.text.slice(0, 14000)}`
-        : "## Article\nNone supplied. sourceFacts must be an empty list.",
+      sources.length
+        ? `## ${heading}\n${sources.map((s) => `URL: ${s.url}\nTitle: ${s.title}\n\n${s.text.slice(0, perSource)}`).join("\n\n---\n\n")}`
+        : "## Outside sources\nNone. sourceFacts must be an empty list.",
       "",
       clientPages.length
         ? `## ${client.name} pages read live\n${clientPages.map((p) => `URL: ${p.url}\n${p.text.slice(0, 5000)}`).join("\n\n---\n\n")}`

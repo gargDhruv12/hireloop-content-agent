@@ -16,7 +16,7 @@ export type { Usage };
 
 // Process-wide total (the eval runner reports it) plus a per-run counter:
 // trackUsage() gives each pipeline run its own, even when runs overlap.
-const emptyUsage = (): Usage => ({ inputTokens: 0, outputTokens: 0, byModel: {}, images: 0 });
+const emptyUsage = (): Usage => ({ inputTokens: 0, outputTokens: 0, byModel: {}, images: 0, searches: 0 });
 const usageTotals: Usage = emptyUsage();
 const runUsage = new AsyncLocalStorage<Usage>();
 
@@ -32,7 +32,11 @@ export async function trackUsage<T>(fn: () => Promise<T>): Promise<{ result: T; 
 }
 
 /** Counted per model, because models are priced differently (see pricing.ts). */
-function addUsage(modelId: string, u: { inputTokens?: number; outputTokens?: number } | undefined, images = 0) {
+function addUsage(
+  modelId: string,
+  u: { inputTokens?: number; outputTokens?: number } | undefined,
+  extra: { images?: number; searches?: number } = {},
+) {
   for (const total of [usageTotals, runUsage.getStore()]) {
     if (!total) continue;
     total.inputTokens += u?.inputTokens ?? 0;
@@ -40,7 +44,8 @@ function addUsage(modelId: string, u: { inputTokens?: number; outputTokens?: num
     const m = ((total.byModel ??= {})[modelId] ??= { inputTokens: 0, outputTokens: 0 });
     m.inputTokens += u?.inputTokens ?? 0;
     m.outputTokens += u?.outputTokens ?? 0;
-    total.images = (total.images ?? 0) + images;
+    total.images = (total.images ?? 0) + (extra.images ?? 0);
+    total.searches = (total.searches ?? 0) + (extra.searches ?? 0);
   }
 }
 
@@ -223,7 +228,7 @@ export async function generateImage(opts: {
         },
       },
     });
-    addUsage(models.image, result.usage, 1);
+    addUsage(models.image, result.usage, { images: 1 });
     const file = result.files.find((f) => f.mediaType.startsWith("image/"));
     if (!file) {
       throw new Error(
@@ -233,6 +238,38 @@ export async function generateImage(opts: {
     return { bytes: file.uint8Array, mediaType: file.mediaType };
   } catch (err) {
     throw friendly(err, "image");
+  }
+}
+
+// ── 4. Web search ────────────────────────────────────────────────────
+
+/**
+ * Pages about a topic, found with Gemini's Google Search tool, for packs that
+ * come without a link. Only the links are used: each page is then read with
+ * the safe page reader and its facts pass the same quote check as an article.
+ */
+export async function searchWeb(opts: { topic: string; audience: string; max: number }): Promise<{ url: string; title?: string }[]> {
+  if (isMock()) return [];
+  assertConfigured();
+  try {
+    const result = await generateText({
+      model: google(models.text),
+      providerOptions: thinkingOptions(models.text),
+      tools: { google_search: google.tools.googleSearch({}) },
+      prompt: [
+        `Search the web for up to ${opts.max} recent, reputable pages a content writer could cite on this topic: ${opts.topic}`,
+        `The readers are ${opts.audience} in India, so prefer Indian or global sources that fit them.`,
+        "Prefer news, research, government and industry bodies. Skip pages selling a competing product, forums and social media.",
+        "Reply with one line per page: its title.",
+      ].join("\n"),
+    });
+    addUsage(models.text, result.usage, { searches: 1 });
+    const seen = new Set<string>();
+    return result.sources
+      .flatMap((s) => (s.sourceType === "url" ? [{ url: s.url, title: s.title }] : []))
+      .filter((s) => !seen.has(s.url) && !!seen.add(s.url));
+  } catch (err) {
+    throw friendly(err, "search");
   }
 }
 

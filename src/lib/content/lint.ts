@@ -38,7 +38,7 @@ export function lintPack(pack: ContentPack, opts: LintOptions): Finding[] {
           pieceId: piece.id,
           kind: "citation",
           severity: "warn",
-          message: "Doesn't use the article you supplied. Cite at least one of its facts (S…), or drop the link.",
+          message: "Doesn't use the outside sources (the article you supplied, or pages found by web search). Cite at least one S fact.",
           by: "rules",
         });
       }
