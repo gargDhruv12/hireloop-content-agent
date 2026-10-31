@@ -43,9 +43,10 @@ export function approvedMarkdown(run: Run, pack: ContentPack, imageFile?: string
     .reverse()
     .filter((e, i, all) => e.status === "approved" && run.review[e.piece] === "approved" && all.findIndex((x) => x.piece === e.piece) === i);
   if (signoffs.length) {
-    lines.push("## Review record", "", "| Piece | Approved | Blocking notes overridden | Text SHA-256 |", "|---|---|---|---|");
+    lines.push("## Review record", "", "| Piece | Approved | By | Blocking notes overridden | Text SHA-256 |", "|---|---|---|---|---|");
     for (const e of signoffs.reverse()) {
-      lines.push(`| ${e.piece} | ${new Date(e.at).toLocaleString("en-IN")} | ${e.blockingAtDecision || "none"} | \`${e.textHash.slice(0, 12)}\` |`);
+      const by = e.by ? `${e.by}${e.byVerified ? "" : " (unverified)"}` : "not recorded";
+      lines.push(`| ${e.piece} | ${new Date(e.at).toLocaleString("en-IN")} | ${by} | ${e.blockingAtDecision || "none"} | \`${e.textHash.slice(0, 12)}\` |`);
     }
   }
   return lines.filter((l, i, all) => !(l === "" && all[i - 1] === "")).join("\n");

@@ -1,7 +1,10 @@
 import Link from "next/link";
+import { headers } from "next/headers";
+import { reviewerFrom } from "@/lib/auth/reviewer";
 import { ThemeToggle } from "./ThemeToggle";
 
-export function TopBar({ title, mock, notice }: { title?: string; mock: boolean; notice?: string | null }) {
+export async function TopBar({ title, mock, notice }: { title?: string; mock: boolean; notice?: string | null }) {
+  const reviewer = reviewerFrom(await headers());
   return (
     <div className="topbar-wrap">
       <header className="topbar">
@@ -28,6 +31,12 @@ export function TopBar({ title, mock, notice }: { title?: string; mock: boolean;
           {mock && (
             <span className="tag tag--offline" title="MOCK_AI=1: no API calls, sample output">
               Offline sample mode
+            </span>
+          )}
+          {reviewer && (
+            <span className="topbar__who" title={reviewer.verified ? "Signed in" : "Signed in with the shared password; the name isn't verified"}>
+              {reviewer.name}
+              {!reviewer.verified && " (unverified)"}
             </span>
           )}
           <ThemeToggle />

@@ -5,6 +5,7 @@ import { PIECE_ORDER } from "@/lib/content/pieces";
 import type { PieceId, ReviewStatus, Run } from "@/lib/content/types";
 import { reviewEntry } from "@/lib/store/review-log";
 import { loadRun, updateRun } from "@/lib/store/runs";
+import { reviewerFrom } from "@/lib/auth/reviewer";
 
 export const runtime = "nodejs";
 
@@ -22,6 +23,7 @@ export async function GET(_req: Request, { params }: Ctx) {
 /** Save a reviewer's edits and approvals, or archive a pack. Rules are re-checked on the server too. */
 export async function PATCH(req: Request, { params }: Ctx) {
   const { id } = await params;
+  const reviewer = reviewerFrom(req.headers);
   const body = (await req.json().catch(() => null)) as { pack?: unknown; review?: Record<string, unknown>; archived?: unknown } | null;
   if (!body || typeof body !== "object") return Response.json({ error: "The request was empty or not JSON." }, { status: 400 });
 
@@ -49,7 +51,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
         // Recorded against the text and findings as saved above, so an edit and its approval line up.
         out.reviewLog = [
           ...(latest.reviewLog ?? []),
-          ...Object.entries(changes).map(([piece, status]) => reviewEntry(out, piece as PieceId | "image", status!)),
+          ...Object.entries(changes).map(([piece, status]) => reviewEntry(out, piece as PieceId | "image", status!, reviewer)),
         ];
       }
       return out;
