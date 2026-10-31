@@ -21,7 +21,8 @@ export const LIMITS = {
   blogMeta: { max: 155, hard: false },
 } as const;
 
-export const BLOG_WORDS = { min: 450, max: 1300 };
+// The writer is asked for 700–900; this range is when the checker steps in.
+export const BLOG_WORDS = { min: 650, max: 1100 };
 export const X_POSTS = { min: 3, max: 8 };
 export const HASHTAGS = { soft: 6, hard: 30 };
 export const META_CTAS = ["Learn more", "Sign up", "Book now", "Contact us", "Get quote"] as const;

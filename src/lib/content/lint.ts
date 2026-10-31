@@ -33,6 +33,15 @@ export function lintPack(pack: ContentPack, opts: LintOptions): Finding[] {
           by: "rules",
         });
       }
+      if (piece.id === "blog" && [...knownIds].some((id) => id.startsWith("S")) && !piece.factIds.some((id) => id.startsWith("S"))) {
+        findings.push({
+          pieceId: piece.id,
+          kind: "citation",
+          severity: "warn",
+          message: "Doesn't use the article you supplied. Cite at least one of its facts (S…), or drop the link.",
+          by: "rules",
+        });
+      }
       const hasNumbers = piece.fields.some((f) => f.kind !== "choice" && extractNumbers(f.value).length > 0);
       if (!piece.factIds.length && hasNumbers) {
         findings.push({
@@ -116,9 +125,12 @@ function structureChecks(piece: Piece, pack: ContentPack): Omit<Finding, "id">[]
       if (words < BLOG_WORDS.min || words > BLOG_WORDS.max) {
         add({
           path: "blog.body",
-          kind: "format",
+          kind: "length",
           severity: "warn",
-          message: `The article is ${words} words. Aim for ${BLOG_WORDS.min}–${BLOG_WORDS.max}.`,
+          message:
+            words < BLOG_WORDS.min
+              ? `The article is ${words} words; the brief is 700–900. Add depth to the thinnest sections (about ${BLOG_WORDS.min - words}+ words), using only the facts given.`
+              : `The article is ${words} words; the brief is 700–900. Tighten it.`,
         });
       }
       if (!/^##\s/m.test(pack.blog.body)) {

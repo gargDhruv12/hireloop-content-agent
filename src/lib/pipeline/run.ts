@@ -1,7 +1,7 @@
 /**
  * The workflow, top to bottom. Read this file first.
  *
- *   research → plan → write → check → revise (once, only if blocked) → image
+ *   research → plan → write → check → revise (only if blocked, up to 2 passes) → image
  *
  * Each step is a plain async function in its own file. This orchestrator
  * times them, reports progress, and saves the run for human review.
@@ -17,11 +17,14 @@ import { isMock, models } from "@/lib/ai/models";
 import { newRunId, saveRun } from "@/lib/store/runs";
 import { assertPublicHttpUrl } from "@/lib/web/fetch-page";
 import { aiReview, blockingPieces, checkPack, mergeFindings } from "./check";
+import { needsRevision, piecesToRevise } from "@/lib/content/findings";
 import { makeImage } from "./image";
 import { research } from "./research";
 import { makePlan, rewritePiece, writePack } from "./write";
 
 type Emit = (event: RunEvent) => void;
+
+const REVISION_ROUNDS = 2;
 
 export function validateInput(raw: Partial<RunInput>): RunInput {
   const topic = (raw.topic ?? "").trim();
@@ -92,34 +95,43 @@ async function buildRun(input: RunInput, emit: Emit, client: ClientProfile): Pro
     (f) => `${countBlocking(f)} blocking, ${f.length - countBlocking(f)} to consider`,
   );
 
-  // Self-revision: one pass, only for pieces with blocking problems.
+  // Self-revision, only for pieces with blocking problems (or a short blog). A second
+  // round retries just the pieces the first left blocked: live, a rewrite that fixed one
+  // ad line sometimes pushed another a character over.
   let pack = firstDraft;
   let revision: Run["revision"];
-  const toFix = blockingPieces(findings);
+  const toFix = piecesToRevise(findings);
   if (toFix.length) {
     const blockingBefore = countBlocking(findings);
+    const touched = new Set<PieceId>();
     await step(
       "revise",
       async (log) => {
-        // Pieces are independent, so rewrite them at the same time, then put each one into the pack.
-        log(`Rewriting ${toFix.join(", ")}`);
-        const rewritten = await Promise.all(
-          toFix.map((pieceId) =>
-            rewritePiece({
-              client,
-              pack: firstDraft,
-              pieceId,
-              findings: findings.filter((f) => f.pieceId === pieceId && f.severity === "block"),
-              facts: found.facts,
-            }),
-          ),
-        );
-        pack = toFix.reduce((acc, pieceId, i) => withPiece(acc, rewritten[i], pieceId), firstDraft);
-        findings = await recheck(pack, client, found.facts, toFix, findings);
+        let round = toFix;
+        for (let pass = 1; pass <= REVISION_ROUNDS && round.length; pass++) {
+          // Pieces are independent, so rewrite them at the same time, then put each one into the pack.
+          log(pass === 1 ? `Rewriting ${round.join(", ")}` : `Second pass on ${round.join(", ")}`);
+          const base = pack;
+          const rewritten = await Promise.all(
+            round.map((pieceId) =>
+              rewritePiece({
+                client,
+                pack: base,
+                pieceId,
+                findings: findings.filter((f) => f.pieceId === pieceId && needsRevision(f)),
+                facts: found.facts,
+              }),
+            ),
+          );
+          pack = round.reduce((acc, pieceId, i) => withPiece(acc, rewritten[i], pieceId), base);
+          findings = await recheck(pack, client, found.facts, round, findings);
+          round.forEach((p) => touched.add(p));
+          round = blockingPieces(findings).filter((p) => round.includes(p));
+        }
       },
-      () => `${toFix.length} piece(s) rewritten, ${countBlocking(findings)} blocking left`,
+      () => `${touched.size} piece(s) rewritten, ${countBlocking(findings)} blocking left`,
     );
-    revision = { pieces: toFix, blockingBefore, blockingAfter: countBlocking(findings) };
+    revision = { pieces: [...touched], blockingBefore, blockingAfter: countBlocking(findings) };
   } else {
     emit({ type: "step", step: "revise", status: "skipped", detail: "Nothing blocking" });
   }

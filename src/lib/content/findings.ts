@@ -50,3 +50,16 @@ export function refreshAfterEdit(
 export function blockingPieces(findings: Finding[]): PieceId[] {
   return PIECE_ORDER.filter((id) => findings.some((f) => f.pieceId === id && f.severity === "block"));
 }
+
+/**
+ * What self-revision should fix: every blocking problem, plus a blog that
+ * misses its word range. That one is only a warning for the reviewer, but the
+ * model undershoots the brief often enough that it's worth a rewrite.
+ */
+export function needsRevision(f: Finding): boolean {
+  return f.severity === "block" || (f.by === "rules" && f.kind === "length" && f.path === "blog.body");
+}
+
+export function piecesToRevise(findings: Finding[]): PieceId[] {
+  return PIECE_ORDER.filter((id) => findings.some((f) => f.pieceId === id && needsRevision(f)));
+}

@@ -60,7 +60,7 @@ flowchart LR
     R --> P[2 Plan]
     P --> W[3 Write]
     W --> C[4 Check]
-    C -->|anything blocking?| V[5 Revise once]
+    C -->|anything blocking?| V[5 Revise]
     C -->|all clear| I
     V --> I[6 Image]
     I --> H[Person reviews,<br/>edits, approves]
@@ -69,11 +69,11 @@ flowchart LR
 
 | Step | What happens | Model | File |
 |---|---|---|---|
-| **1. Research** | Reads the news link and HireLoop's live site (always the home page; if it links to more pages, an agent loop with a `fetch_page` tool picks the relevant ones, staying under the client's path). Extracts facts and gives each an id. **Grounding:** a fact is kept only if its quote is really in the page it came from and it adds no number the quote doesn't have; dropped facts are listed in the Research view. | Gemini Flash + tool | `src/lib/pipeline/research.ts`, `src/lib/content/grounding.ts` |
+| **1. Research** | Reads the news link and HireLoop's live site (always the home page; if it links to more pages, an agent loop with a `fetch_page` tool picks the relevant ones, staying under the client's path). Extracts facts and gives each an id. **Grounding:** a fact is kept only if its quote is really in the page it came from and it adds no number the quote doesn't have; dropped facts are listed in the Research view. Footnote markers and acronym asides like "(AI)" don't count as a mismatch. The plan and writer are told to build on the article (S facts) and prefer live-site facts (W); a blog that ignores a supplied article gets a warning. | Gemini Flash + tool | `src/lib/pipeline/research.ts`, `src/lib/content/grounding.ts` |
 | **2. Plan** | Picks one audience, one angle, a key message and 2–5 facts to lean on. | Gemini Flash | `src/lib/pipeline/write.ts` |
 | **3. Write** | Writes the 10 pieces and the image brief in four calls at the same time (blog · social posts · ads · image brief), all from the same plan. Smaller calls survive "model overloaded" far better than one giant call, and the blog gets its own output budget. | Gemini Flash (or Argon) | `src/lib/pipeline/write.ts` |
 | **4. Check** | **Rules** (plain code): character limits, banned phrases, numbers not found in any fact, cited fact ids that don't exist, missing call to action, near-identical ads. **Reviewer** (a separate model call that didn't write the drafts): unsupported or overstated claims, off-brand tone. | Code + Gemini Flash | `src/lib/content/lint.ts`, `src/lib/pipeline/check.ts` |
-| **5. Revise** | Rewrites only the pieces with blocking problems, once and in parallel, then checks again (the reviewer re-reads only the rewritten pieces). Remaining problems are left for the person. | Gemini Flash | `src/lib/pipeline/run.ts` |
+| **5. Revise** | Rewrites only the pieces with blocking problems (and a blog under 650 words), in parallel, then checks again (the reviewer re-reads only the rewritten pieces). A piece still blocked gets one more targeted pass. Remaining problems are left for the person. | Gemini Flash | `src/lib/pipeline/run.ts` |
 | **6. Image** | Turns the writer's image brief into a prompt and calls a separate image model. If it fails, the text still arrives. | Nano Banana 2.1 | `src/lib/pipeline/image.ts` |
 
 Every fact has an id the drafts must cite:
@@ -141,7 +141,7 @@ docs/                    channel rules, Friday demo script
 
 **The reviewer model didn't write the drafts.** It gets the drafts and the fact list with a different job: find problems. It isn't asked to grade its own work.
 
-**Self-revision happens once.** One automatic fix catches most mistakes. Looping until "perfect" burns credits and can drift. Whatever is still wrong is shown to the person, not hidden.
+**Self-revision is capped at two passes.** The first fixes most mistakes; the second retries only pieces still blocked (live, a rewrite sometimes fixed one ad line and pushed another a character over). Looping until "perfect" burns credits and can drift. Whatever is still wrong is shown to the person, not hidden.
 
 **Drafts are shown in the shape of their channel.** The LinkedIn preview marks where "…see more" cuts in; Google ads look like a search result with a character count per line. People judge copy better when they see it as readers will.
 

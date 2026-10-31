@@ -147,3 +147,31 @@ test("the checked lookup passes public addresses through, honouring the requeste
   );
   assert.equal((all as unknown[]).length, 2);
 });
+
+test("a true quote still matches when it leaves out footnotes or an acronym aside", () => {
+  const page = "Internet-based recruitment is now widespread, including the use of artificial intelligence (AI). [ 1 ]\n\n## Process\n[ edit ]";
+  const fact = { text: "AI is widely used in online recruitment.", quote: "Internet-based recruitment is now widespread, including the use of artificial intelligence." };
+  assert.equal(groundingProblem(fact, page), null);
+  // A meaningful aside is not dropped: the quote must not lose a "(not)".
+  assert.match(groundingProblem({ text: "x", quote: "this approach is reliable for hiring" }, "this approach is (not) reliable for hiring") ?? "", /isn't in the page/);
+  // And a number the page puts in an aside still can't be invented in the fact.
+  assert.match(groundingProblem({ text: "Rules from 2023 apply to hiring", quote: "the data protection act applies" }, "the data protection act (2023) applies") ?? "", /adds "2023"/);
+});
+
+test("Wikipedia footnote links and [edit] buttons don't reach the model", () => {
+  const html = `<main><h2>Process<span class="mw-editsection"><span>[</span><a href="/e">edit</a><span>]</span></span></h2><p>Recruiting is common.<sup class="reference"><a href="#c1">[1]</a></sup> More text here.</p></main>`;
+  const { text } = htmlToText(html, "https://en.wikipedia.org/wiki/Recruitment");
+  assert.ok(!/\[\s*1\s*\]/.test(text), text);
+  assert.ok(!/edit/i.test(text), text);
+  assert.match(text, /Recruiting is common\. More text here\./);
+});
+
+test("a blog that ignores the supplied article gets a warning", () => {
+  const facts = [...hireloop.facts, { id: "S1", text: "Standardized tests support fair selection." }];
+  const pack = structuredClone(mockFixtures.draft) as ContentPack;
+  pack.blog.factIds = ["C8"];
+  const warn = lintPack(pack, { client: hireloop, facts }).find((f) => f.pieceId === "blog" && f.kind === "citation");
+  assert.equal(warn?.severity, "warn");
+  pack.blog.factIds = ["C8", "S1"];
+  assert.ok(!lintPack(pack, { client: hireloop, facts }).some((f) => f.pieceId === "blog" && /article you supplied/.test(f.message)));
+});

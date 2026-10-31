@@ -22,13 +22,20 @@ export interface RejectedFact {
 /** Lowercase, straight quotes, plain dashes, single spaces: formatting differences aren't lies. */
 export function normaliseForMatch(s: string): string {
   return s
+    // Acronym or year asides such as "(AI)", "(RPO)", "(2023)", which quotes often drop.
+    // Only these: a dropped "(not)" would change the meaning. Numbers are still checked
+    // against the quote itself, so this can't let a new number through.
+    .replace(/\([A-Z0-9][A-Z0-9&.-]{0,9}s?\)/g, " ")
     .toLowerCase()
     .replace(/[‘’‚′`]/g, "'")
     .replace(/[“”„″]/g, '"')
     .replace(/[‐‑‒–—―]/g, "-")
     .replace(/×/g, "x")
     .replace(/…/g, "...")
+    // Footnote and edit markers ("[ 1 ]", "[edit]", "[citation needed]") that quotes leave out.
+    .replace(/\[\s*(?:\d+|[a-z]|edit|citation needed)\s*\]/g, " ")
     .replace(/\s+/g, " ")
+    .replace(/\s+([.,;:!?])/g, "$1")
     .trim();
 }
 

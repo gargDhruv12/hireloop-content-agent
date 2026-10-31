@@ -266,12 +266,15 @@ export function htmlToText(html: string, baseUrl: string): PageText {
     body
       .replace(/<(script|style|noscript|svg|nav|footer|form|iframe|template)[\s\S]*?<\/\1>/gi, " ")
       .replace(/<!--[\s\S]*?-->/g, " ")
+      // Wikipedia-style footnote links and "[edit]" buttons are noise to the model.
+      .replace(/<sup[^>]*class=["'][^"']*reference[^"']*["'][^>]*>[\s\S]*?<\/sup>/gi, " ")
       .replace(/<(h[1-6])[^>]*>/gi, "\n\n## ")
       .replace(/<li[^>]*>/gi, "\n- ")
       .replace(/<(br|\/p|\/div|\/h[1-6]|\/li|\/tr|\/section)[^>]*>/gi, "\n")
       .replace(/<[^>]+>/g, " "),
   )
     .replace(/[ \t\f\v ]+/g, " ")
+    .replace(/ ?\[ ?edit ?\]/gi, "")
     .replace(/ *\n */g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim()

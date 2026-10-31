@@ -48,9 +48,10 @@ async function main() {
   const ctx = { params: Promise.resolve({ id: done.runId }) };
   let run = await (await one.GET(new Request("http://x"), ctx)).json();
 
-  // 3. The checker caught the three planted problems and the agent fixed them.
-  assert.deepEqual(run.revision.pieces, ["linkedin", "meta-2", "google-2"]);
+  // 3. The checker caught the three planted problems and the short blog, and the agent fixed them.
+  assert.deepEqual(run.revision.pieces, ["blog", "linkedin", "meta-2", "google-2"]);
   assert.equal(run.revision.blockingAfter, 0);
+  assert.ok(!run.findings.some((f: { pieceId: string; kind: string }) => f.pieceId === "blog" && f.kind === "length"), "short blog expanded");
   assert.ok(run.findings.some((f: { pieceId: string; by: string }) => f.pieceId === "instagram" && f.by === "ai"), "tone note kept");
   console.log("revision  ", `${run.revision.blockingBefore} blocking → ${run.revision.blockingAfter}`);
   console.log("findings  ", run.findings.map((f: { pieceId: string; kind: string; severity: string }) => `${f.pieceId}/${f.kind}/${f.severity}`).join(", "));
@@ -125,5 +126,11 @@ main()
   .finally(() => {
     // Windows can't delete the folder the process is standing in.
     process.chdir(startDir);
-    if (!process.exitCode) rmSync(dir, { recursive: true, force: true });
+    if (process.exitCode) return;
+    try {
+      // Antivirus or a lingering handle can hold a fresh file for a moment on Windows (EBUSY).
+      rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+    } catch (err) {
+      console.warn("Couldn't delete the temporary folder (the test still passed):", (err as Error).message);
+    }
   });
