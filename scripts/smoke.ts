@@ -62,6 +62,13 @@ async function main() {
   // 6. Approvals are saved.
   run = await (await one.PATCH(new Request("http://x", { ...json({ review: { blog: "approved", image: "approved" } }), method: "PATCH" }), ctx)).json();
   assert.equal(run.review.blog, "approved");
+  // ...and recorded by the server, with a hash of the text that was approved.
+  const blogLog = run.reviewLog.find((e: { piece: string; status: string }) => e.piece === "blog" && e.status === "approved");
+  assert.match(blogLog?.textHash ?? "", /^[0-9a-f]{64}$/);
+  // Approving a piece that still has a blocking note is allowed but logged as an override.
+  run = await (await one.PATCH(new Request("http://x", { ...json({ review: { linkedin: "approved" } }), method: "PATCH" }), ctx)).json();
+  assert.ok(run.reviewLog.at(-1).blockingAtDecision > 0, "override of a blocking note is recorded");
+  console.log("review    ", "approvals logged with text hashes; override recorded");
 
   // 7. Rewriting one piece works and sends it back to pending.
   const ctxPiece = { params: Promise.resolve({ id: done.runId, pieceId: "google-2" }) };
@@ -93,6 +100,7 @@ async function main() {
   const zipText = zip.toString("latin1");
   assert.ok(zipText.includes("approved.md") && /image\.(svg|png|jpg|webp)/.test(zipText), "zip has the Markdown and the image");
   assert.ok(zipText.includes("![") && zipText.includes("## Blog post"), "Markdown links the image and has the blog");
+  assert.ok(zipText.includes("## Review record"), "Markdown includes the review record");
   console.log("export    ", `zip ${zip.length} bytes with approved.md and the image`);
   const dl = await image.GET(new Request("http://x?download=1"), ctx);
   assert.match(dl.headers.get("content-disposition") ?? "", /^attachment/);

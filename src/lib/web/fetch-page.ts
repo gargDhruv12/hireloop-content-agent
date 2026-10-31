@@ -4,6 +4,8 @@
  * come back thin, and the run says so instead of guessing.
  */
 
+import { isIP } from "node:net";
+
 export interface PageText {
   url: string;
   title: string;
@@ -60,7 +62,7 @@ export async function fetchPage(rawUrl: string): Promise<PageText> {
       throw new FetchPageError(`That link is a ${type || "non-HTML"} file, not a web page. Paste a link to an article.`);
     }
     try {
-      html = (await res.text()).slice(0, MAX_BYTES);
+      html = await readCapped(res, MAX_BYTES);
     } catch (err) {
       throw new FetchPageError(
         controller.signal.aborted ? `Timed out after ${TIMEOUT_MS / 1000}s reading ${url.hostname}.` : `Couldn't read ${url.hostname}: ${(err as Error).message}`,
@@ -79,6 +81,30 @@ export async function fetchPage(rawUrl: string): Promise<PageText> {
   return page;
 }
 
+/** Read at most `max` bytes of the body, so a huge or endless response can't fill memory. */
+async function readCapped(res: Response, max: number): Promise<string> {
+  if (!res.body) return "";
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  while (size < max) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    size += value.byteLength;
+  }
+  await reader.cancel().catch(() => {});
+  const bytes = new Uint8Array(Math.min(size, max));
+  let offset = 0;
+  for (const c of chunks) {
+    const part = c.subarray(0, bytes.length - offset);
+    bytes.set(part, offset);
+    offset += part.length;
+    if (offset >= bytes.length) break;
+  }
+  return new TextDecoder().decode(bytes);
+}
+
 /** Allow only public http(s) URLs, so the agent can't be pointed at internal machines. */
 export function assertPublicHttpUrl(raw: string): URL {
   let url: URL;
@@ -90,20 +116,30 @@ export function assertPublicHttpUrl(raw: string): URL {
   if (url.protocol !== "https:" && url.protocol !== "http:") {
     throw new FetchPageError("Only http and https links can be read.");
   }
-  const host = url.hostname.toLowerCase();
+  // URL keeps IPv6 literals in brackets ("[::1]"); strip them so the IP checks see the address.
+  const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
   const privateHost =
     host === "localhost" ||
     host.endsWith(".localhost") ||
     host.endsWith(".local") ||
     host.endsWith(".internal") ||
-    isPrivateIp(host) ||
-    host.startsWith("[");
+    isPrivateIp(host);
   if (privateHost) throw new FetchPageError("Links to private or local addresses can't be read.");
   return url;
 }
 
-function isPrivateIp(ip: string): boolean {
-  const v4 = ip.replace(/^::ffff:/i, "");
+/**
+ * True only for IP literals in a private, loopback or link-local range.
+ * Hostnames are never IPs: testing them against the IPv6 prefixes blocked
+ * real sites such as fda.gov and the client's own fde-….chatgpt.site.
+ */
+export function isPrivateIp(ip: string): boolean {
+  if (!isIP(ip)) return false;
+  // IPv4-mapped IPv6, in either the dotted form or the hex form URL normalises to (::ffff:7f00:1).
+  const hex = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i.exec(ip);
+  const v4 = hex
+    ? [parseInt(hex[1], 16) >> 8, parseInt(hex[1], 16) & 255, parseInt(hex[2], 16) >> 8, parseInt(hex[2], 16) & 255].join(".")
+    : ip.replace(/^::ffff:/i, "");
   return (
     /^0\./.test(v4) ||
     /^127\./.test(v4) ||
@@ -137,8 +173,9 @@ async function assertResolvesPublic(url: URL): Promise<void> {
 export function htmlToText(html: string, baseUrl: string): PageText {
   const title = decode(match(html, /<title[^>]*>([\s\S]*?)<\/title>/i) ?? "").trim();
   const description = decode(
-    match(html, /<meta[^>]+name=["']description["'][^>]*content=["']([^"']*)["']/i) ??
-      match(html, /<meta[^>]+property=["']og:description["'][^>]*content=["']([^"']*)["']/i) ??
+    // Close on the same quote that opened the value, so "HireLoop's …" isn't cut at the apostrophe.
+    match(html, /<meta[^>]+name=["']description["'][^>]*content=(["'])([\s\S]*?)\1/i, 2) ??
+      match(html, /<meta[^>]+property=["']og:description["'][^>]*content=(["'])([\s\S]*?)\1/i, 2) ??
       "",
   ).trim();
 
@@ -178,8 +215,8 @@ export function htmlToText(html: string, baseUrl: string): PageText {
   return { url: baseUrl, title, description, text, links };
 }
 
-function match(s: string, re: RegExp): string | undefined {
-  return re.exec(s)?.[1];
+function match(s: string, re: RegExp, group = 1): string | undefined {
+  return re.exec(s)?.[group];
 }
 
 const ENTITIES: Record<string, string> = {

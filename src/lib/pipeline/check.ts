@@ -2,7 +2,7 @@ import type { ClientProfile } from "@/clients/types";
 import { CheckSchema, type ContentPack } from "@/lib/content/schemas";
 import { mergeFindings } from "@/lib/content/findings";
 import { lintPack } from "@/lib/content/lint";
-import { PIECE_ORDER, getPieces } from "@/lib/content/pieces";
+import { getPieces } from "@/lib/content/pieces";
 import type { Fact, Finding, PieceId } from "@/lib/content/types";
 import { generateStructured } from "@/lib/ai/gemini";
 import { checkPrompt } from "./prompts";
@@ -20,8 +20,9 @@ export async function checkPack(pack: ContentPack, client: ClientProfile, facts:
   return mergeFindings(rules, ai);
 }
 
-export async function aiReview(pack: ContentPack, client: ClientProfile, facts: Fact[]): Promise<Finding[]> {
-  const pieces = getPieces(pack);
+/** `only` limits the review to some pieces (after a rewrite), so untouched drafts aren't paid for twice. */
+export async function aiReview(pack: ContentPack, client: ClientProfile, facts: Fact[], only?: PieceId[]): Promise<Finding[]> {
+  const pieces = getPieces(pack).filter((p) => !only || only.includes(p.id));
   const draftText = pieces
     .map((p) => `### ${p.id}\n${p.fields.map((f) => `${f.label}: ${f.value}`).join("\n")}`)
     .join("\n\n");
@@ -29,7 +30,7 @@ export async function aiReview(pack: ContentPack, client: ClientProfile, facts: 
   const out = await generateStructured({ task: "check", schema: CheckSchema, system, prompt });
 
   return out.findings
-    .filter((f) => (PIECE_ORDER as string[]).includes(f.pieceId))
+    .filter((f) => pieces.some((p) => p.id === f.pieceId))
     .map((f, i) => {
       const piece = pieces.find((p) => p.id === f.pieceId)!;
       const field = piece.fields.find((fl) => fl.value.toLowerCase().includes(f.excerpt.toLowerCase()));

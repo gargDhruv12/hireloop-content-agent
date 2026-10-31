@@ -194,6 +194,19 @@ export function pieceLocation(id: PieceId): { key: keyof ContentPack; index?: nu
   return { key: kind === "meta" ? "metaAds" : "googleAds", index: Number(n) - 1 };
 }
 
+/** A copy of `target` with one piece taken from `source`. */
+export function withPiece(target: ContentPack, source: ContentPack, piece: PieceId): ContentPack {
+  const { key, index } = pieceLocation(piece);
+  const next = structuredClone(target);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const from = source as any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  if (index === undefined) (next as any)[key] = structuredClone(from[key]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  else (next as any)[key][index] = structuredClone(from[key][index]);
+  return next;
+}
+
 /** Plain text of a whole piece, for prompts and exports. */
 export function pieceText(piece: Piece): string {
   return piece.fields.map((f) => `${f.label}: ${f.value}`).join("\n");

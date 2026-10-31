@@ -4,6 +4,7 @@ const KIND_LABEL: Record<Finding["kind"], string> = {
   length: "Length",
   banned_phrase: "Brand rule",
   untraced_number: "Number without a source",
+  citation: "Citation",
   missing_cta: "Call to action",
   format: "Format",
   unsupported_claim: "Claim without a source",

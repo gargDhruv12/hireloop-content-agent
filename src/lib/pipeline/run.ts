@@ -10,7 +10,9 @@
 import type { ClientProfile } from "@/clients/types";
 import { hireloop } from "@/clients/hireloop";
 import { countBlocking, lintPack } from "@/lib/content/lint";
+import { withPiece } from "@/lib/content/pieces";
 import type { Finding, PieceId, Run, RunEvent, RunInput, StepName } from "@/lib/content/types";
+import { trackUsage } from "@/lib/ai/gemini";
 import { isMock, models } from "@/lib/ai/models";
 import { newRunId, saveRun } from "@/lib/store/runs";
 import { assertPublicHttpUrl } from "@/lib/web/fetch-page";
@@ -36,6 +38,14 @@ export function validateInput(raw: Partial<RunInput>): RunInput {
 }
 
 export async function runPipeline(input: RunInput, emit: Emit, client: ClientProfile = hireloop): Promise<Run> {
+  const { result: run, usage } = await trackUsage(() => buildRun(input, emit, client));
+  run.usage = usage;
+  await saveRun(run);
+  emit({ type: "done", runId: run.id });
+  return run;
+}
+
+async function buildRun(input: RunInput, emit: Emit, client: ClientProfile): Promise<Run> {
   const id = newRunId(input.topic);
   const timings: Run["timings"] = {};
 
@@ -57,7 +67,11 @@ export async function runPipeline(input: RunInput, emit: Emit, client: ClientPro
   const found = await step(
     "research",
     (log) => research(input, client, log),
-    (r) => `${r.facts.filter((f) => f.relevant).length} relevant facts${r.pagesRead.length ? `, ${r.pagesRead.filter((p) => p.ok).length} page(s) read` : ""}`,
+    (r) =>
+      `${r.facts.filter((f) => f.relevant).length} relevant facts` +
+      (r.pagesRead.length ? `, ${r.pagesRead.filter((p) => p.ok).length} page(s) read` : "") +
+      (r.rejectedFacts?.length ? `, ${r.rejectedFacts.length} unsupported fact(s) dropped` : "") +
+      (r.clientSite?.status === "failed" ? ", client site couldn't be read" : ""),
   );
 
   const plan = await step(
@@ -87,16 +101,20 @@ export async function runPipeline(input: RunInput, emit: Emit, client: ClientPro
     await step(
       "revise",
       async (log) => {
-        for (const pieceId of toFix) {
-          log(`Rewriting ${pieceId}`);
-          pack = await rewritePiece({
-            client,
-            pack,
-            pieceId,
-            findings: findings.filter((f) => f.pieceId === pieceId && f.severity === "block"),
-            facts: found.facts,
-          });
-        }
+        // Pieces are independent, so rewrite them at the same time, then put each one into the pack.
+        log(`Rewriting ${toFix.join(", ")}`);
+        const rewritten = await Promise.all(
+          toFix.map((pieceId) =>
+            rewritePiece({
+              client,
+              pack: firstDraft,
+              pieceId,
+              findings: findings.filter((f) => f.pieceId === pieceId && f.severity === "block"),
+              facts: found.facts,
+            }),
+          ),
+        );
+        pack = toFix.reduce((acc, pieceId, i) => withPiece(acc, rewritten[i], pieceId), firstDraft);
         findings = await recheck(pack, client, found.facts, toFix, findings);
       },
       () => `${toFix.length} piece(s) rewritten, ${countBlocking(findings)} blocking left`,
@@ -132,8 +150,6 @@ export async function runPipeline(input: RunInput, emit: Emit, client: ClientPro
     review: {},
     timings,
   };
-  await saveRun(run);
-  emit({ type: "done", runId: id });
   return run;
 }
 
@@ -149,7 +165,7 @@ async function recheck(
   previous: Finding[],
 ): Promise<Finding[]> {
   const rules = lintPack(pack, { client, facts });
-  const freshAi = (await aiReview(pack, client, facts)).filter((f) => revised.includes(f.pieceId));
+  const freshAi = await aiReview(pack, client, facts, revised);
   const keptAi = previous.filter((f) => f.by === "ai" && !revised.includes(f.pieceId));
   return mergeFindings(rules, [...keptAi, ...freshAi]);
 }

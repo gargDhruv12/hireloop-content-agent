@@ -69,11 +69,11 @@ flowchart LR
 
 | Step | What happens | Model | File |
 |---|---|---|---|
-| **1. Research** | Reads the news link. If `CLIENT_SITE_URL` is set, an agent loop with a `fetch_page` tool browses the client site and picks the relevant pages. Extracts facts and gives each an id. | Gemini Flash + tool | `src/lib/pipeline/research.ts` |
+| **1. Research** | Reads the news link and HireLoop's live site (always the home page; if it links to more pages, an agent loop with a `fetch_page` tool picks the relevant ones, staying under the client's path). Extracts facts and gives each an id. **Grounding:** a fact is kept only if its quote is really in the page it came from and it adds no number the quote doesn't have; dropped facts are listed in the Research view. | Gemini Flash + tool | `src/lib/pipeline/research.ts`, `src/lib/content/grounding.ts` |
 | **2. Plan** | Picks one audience, one angle, a key message and 2–5 facts to lean on. | Gemini Flash | `src/lib/pipeline/write.ts` |
-| **3. Write** | Writes all 10 pieces and an image brief in one structured call, so every channel tells the same story. | Gemini Flash (or Argon) | `src/lib/pipeline/write.ts` |
-| **4. Check** | **Rules** (plain code): character limits, banned phrases, numbers not found in any fact, missing call to action, near-identical ads. **Reviewer** (a separate model call that didn't write the drafts): unsupported or overstated claims, off-brand tone. | Code + Gemini Flash | `src/lib/content/lint.ts`, `src/lib/pipeline/check.ts` |
-| **5. Revise** | Rewrites only the pieces with blocking problems, once, then checks again. Remaining problems are left for the person. | Gemini Flash | `src/lib/pipeline/run.ts` |
+| **3. Write** | Writes the 10 pieces and the image brief in four calls at the same time (blog · social posts · ads · image brief), all from the same plan. Smaller calls survive "model overloaded" far better than one giant call, and the blog gets its own output budget. | Gemini Flash (or Argon) | `src/lib/pipeline/write.ts` |
+| **4. Check** | **Rules** (plain code): character limits, banned phrases, numbers not found in any fact, cited fact ids that don't exist, missing call to action, near-identical ads. **Reviewer** (a separate model call that didn't write the drafts): unsupported or overstated claims, off-brand tone. | Code + Gemini Flash | `src/lib/content/lint.ts`, `src/lib/pipeline/check.ts` |
+| **5. Revise** | Rewrites only the pieces with blocking problems, once and in parallel, then checks again (the reviewer re-reads only the rewritten pieces). Remaining problems are left for the person. | Gemini Flash | `src/lib/pipeline/run.ts` |
 | **6. Image** | Turns the writer's image brief into a prompt and calls a separate image model. If it fails, the text still arrives. | Nano Banana 2.1 | `src/lib/pipeline/image.ts` |
 
 Every fact has an id the drafts must cite:
@@ -144,7 +144,7 @@ docs/                    channel rules, Friday demo script
 
 **Drafts are shown in the shape of their channel.** The LinkedIn preview marks where "…see more" cuts in; Google ads look like a search result with a character count per line. People judge copy better when they see it as readers will.
 
-**Blocking problems disable Approve.** A reviewer can still override (the checker can be wrong), but it is a deliberate extra click.
+**Blocking problems disable Approve.** A reviewer can still override (the checker can be wrong), but it is a deliberate extra click. The server records every decision (time, blocking notes overridden, and a SHA-256 of the exact text approved), and the download carries that review record.
 
 **The AI SDK lives in one file.** `src/lib/ai/gemini.ts` is the only file that imports `ai` or `@ai-sdk/google`. We pinned AI SDK v6 because v7 renamed several functions; upgrading, or switching to OpenAI, means editing one file.
 
@@ -169,12 +169,14 @@ Tip: `?view=linkedin` (or `blog`, `x`, `meta-2`, `google-1`, `image`…) in the 
 ## Testing and evaluation
 
 ```bash
-npm test               # unit tests: rules checker, page reader, findings (no API calls)
+npm test               # unit tests: rules checker, page reader, grounding, citations, review record (no API calls)
 npm run smoke          # the whole workflow end to end, offline, through the real API routes
 npm run eval           # runs every case in evals/cases.json against Gemini, writes a report
 npm run eval:checker   # plants 4 known problems and counts how many the checker catches
 npm run typecheck
 ```
+
+GitHub Actions (`.github/workflows/ci.yml`) runs typecheck, tests, the offline smoke test and a production build on every push and pull request. None of them need an API key.
 
 `npm run eval` writes a table to `evals/results/` with, per case:
 
@@ -198,7 +200,11 @@ Add the Friday shared link to the `shared-news-link` case's `sourceUrl` before t
 | `TEXT_MODEL` | `gemini-3.8-flash` | Research, plan, check, revise |
 | `WRITER_MODEL` | `gemini-3.8-flash` | Writing the pack. Try `gemini-4-argon` for comparison |
 | `IMAGE_MODEL` | `gemini-nano-banana-2.1` | The picture |
-| `CLIENT_SITE_URL` | (empty) | If set, the researcher browses the live client site |
+| `FALLBACK_TEXT_MODEL` | (empty) | Comma-separated models tried in order when the main one is overloaded or rate-limited, e.g. `gemini-3.5-flash,gemini-3.7-flash` |
+| `THINKING_LEVEL` | `low` | Gemini 3+ thinking level. `low` is much faster; raise it if quality drops |
+| `CLIENT_SITE_URL` | HireLoop demo site | The site the researcher reads live. `off` = fact sheet only |
+| `APP_PASSWORD` | (empty) | **Set before deploying.** Every page and API route then asks for it (HTTP Basic, any user name) |
+| `RUNS_PER_HOUR` | `20` | Packs one address can start per hour; `0` = no cap |
 | `MOCK_AI` | `0` | `1` = offline sample mode, no API calls |
 
 **Rough cost:** about ₹7 of text per pack on Flash (about ₹18 on Argon) plus a few rupees per image, at October 2026 introductory prices. Check Google's pricing page; prices change. Set a spend cap in Google AI Studio.
@@ -214,7 +220,9 @@ Add the Friday shared link to the `shared-news-link` case's `sourceUrl` before t
 - **The checker is not a guarantee.** The rules only catch what they're written for, and the AI reviewer can miss a claim or flag a fine one. That's why a person approves everything.
 - **Number tracing is literal.** "Two days" won't be matched against "48 hours", and small counting numbers (1–10) are ignored.
 - **Images can still drift**: odd hands, text in the frame, or a scene that doesn't fit India. Regenerate, or edit the brief.
-- **Storage is local files.** On Vercel the `.data/` folder doesn't persist between requests. For a hosted demo, swap `src/lib/store/runs.ts` for Vercel Blob or Supabase.
+- **Storage is local files.** On Vercel the `.data/` folder doesn't persist between requests, and the edit lock only works inside one server process. For a hosted demo, swap `src/lib/store/runs.ts` for Vercel Blob or Supabase (issue #7).
+- **The run limit is per server process.** It stops a runaway script, not a determined abuser. Keep a spend cap in Google AI Studio too.
+- **DNS rebinding.** The page reader checks where a host resolves before fetching, but `fetch` resolves it again; a hostile DNS server could answer differently the second time (issue #8).
 - **One client.** The code is client-agnostic (`src/clients/`), but the UI loads HireLoop.
 
 ---

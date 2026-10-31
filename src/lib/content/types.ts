@@ -1,4 +1,5 @@
 import type { ContentPack, Plan } from "./schemas";
+import type { RejectedFact } from "./grounding";
 
 /** A fact the drafts are allowed to use. C = client site, S = source article, W = client page read live. */
 export interface Fact {
@@ -15,14 +16,19 @@ export interface Fact {
 export interface ResearchResult {
   topicSummary: string;
   facts: Fact[];
+  /** Facts the model offered whose quote wasn't in the page read. Never shown to the writer. Optional for older runs. */
+  rejectedFacts?: RejectedFact[];
   cautions: string[];
   pagesRead: { url: string; title: string; chars: number; ok: boolean; error?: string }[];
+  /** Whether the client's live site was read this run. Optional for older runs. */
+  clientSite?: { status: "off" } | { status: "read"; url: string; pages: number } | { status: "failed"; url: string; error: string };
 }
 
 export type FindingKind =
   | "length"
   | "banned_phrase"
   | "untraced_number"
+  | "citation"
   | "missing_cta"
   | "format"
   | "unsupported_claim"
@@ -86,7 +92,22 @@ export interface Run {
   image?: { file: string; mediaType: string; prompt: string };
   imageError?: string;
   review: Partial<Record<PieceId | "image", ReviewStatus>>;
+  /** Every review decision, oldest first. Optional for older runs. */
+  reviewLog?: ReviewLogEntry[];
   timings: Partial<Record<StepName, number>>;
+  /** Tokens this run used across all model calls (not counting later rewrites). Optional for older runs. */
+  usage?: { inputTokens: number; outputTokens: number };
+}
+
+/** One review decision, recorded by the server so the export can show who signed off on what. */
+export interface ReviewLogEntry {
+  piece: PieceId | "image";
+  status: ReviewStatus;
+  at: string;
+  /** Blocking findings on the piece when it was approved. Above 0 means the reviewer overrode the checker. */
+  blockingAtDecision: number;
+  /** SHA-256 of the piece's text at the moment of the decision, so an export can prove it's the reviewed text. */
+  textHash: string;
 }
 
 /** Progress events streamed to the browser while a run is in flight (NDJSON). */

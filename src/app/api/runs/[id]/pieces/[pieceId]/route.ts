@@ -1,7 +1,6 @@
 import { hireloop } from "@/clients/hireloop";
 import { mergeFindings, refreshAfterEdit } from "@/lib/content/findings";
-import { PIECE_ORDER, pieceLocation } from "@/lib/content/pieces";
-import type { ContentPack } from "@/lib/content/schemas";
+import { PIECE_ORDER, withPiece } from "@/lib/content/pieces";
 import type { PieceId } from "@/lib/content/types";
 import { aiReview } from "@/lib/pipeline/check";
 import { rewritePiece } from "@/lib/pipeline/write";
@@ -32,7 +31,7 @@ export async function POST(req: Request, { params }: Ctx) {
       facts: run.research.facts,
       reviewerNote: note,
     });
-    const fresh = (await aiReview(rewritten, hireloop, run.research.facts)).filter((f) => f.pieceId === piece);
+    const fresh = await aiReview(rewritten, hireloop, run.research.facts, [piece]);
 
     // The model calls take a while: put only this piece into the latest saved
     // run, so edits and approvals made meanwhile on other pieces stay.
@@ -47,16 +46,4 @@ export async function POST(req: Request, { params }: Ctx) {
   } catch (err) {
     return Response.json({ error: (err as Error).message || "The rewrite failed." }, { status: 502 });
   }
-}
-
-function withPiece(target: ContentPack, source: ContentPack, piece: PieceId): ContentPack {
-  const { key, index } = pieceLocation(piece);
-  const next = structuredClone(target);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const from = source as any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  if (index === undefined) (next as any)[key] = from[key];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  else (next as any)[key][index] = from[key][index];
-  return next;
 }

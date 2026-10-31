@@ -2,7 +2,8 @@ import { hireloop } from "@/clients/hireloop";
 import { ContentPackSchema } from "@/lib/content/schemas";
 import { refreshAfterEdit } from "@/lib/content/findings";
 import { PIECE_ORDER } from "@/lib/content/pieces";
-import type { ReviewStatus, Run } from "@/lib/content/types";
+import type { PieceId, ReviewStatus, Run } from "@/lib/content/types";
+import { reviewEntry } from "@/lib/store/review-log";
 import { loadRun, updateRun } from "@/lib/store/runs";
 
 export const runtime = "nodejs";
@@ -42,8 +43,13 @@ export async function PATCH(req: Request, { params }: Ctx) {
         // Merge, so approving one piece never resets another saved at the same time.
         const changes = Object.fromEntries(
           Object.entries(body.review).filter(([k, v]) => REVIEW_KEYS.includes(k) && STATUSES.includes(v as ReviewStatus)),
-        );
+        ) as Run["review"];
         out.review = { ...latest.review, ...changes };
+        // Recorded against the text and findings as saved above, so an edit and its approval line up.
+        out.reviewLog = [
+          ...(latest.reviewLog ?? []),
+          ...Object.entries(changes).map(([piece, status]) => reviewEntry(out, piece as PieceId | "image", status!)),
+        ];
       }
       return out;
     });

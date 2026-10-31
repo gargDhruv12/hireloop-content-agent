@@ -9,7 +9,11 @@ export const hireloop: ClientProfile = {
   name: "HireLoop",
   oneLiner:
     "An AI interviewer that runs the first round of hiring 24×7, by voice or video, in 9 Indian languages. Recruiters make the decision.",
-  siteUrl: process.env.CLIENT_SITE_URL || undefined,
+  // The live site is read every run so new facts and changes show up. CLIENT_SITE_URL=off uses the fact sheet only.
+  siteUrl:
+    process.env.CLIENT_SITE_URL === "off"
+      ? undefined
+      : process.env.CLIENT_SITE_URL || "https://fde-client-company-demos.aaryanptl.chatgpt.site/hireloop",
   audiences: [
     "HR and talent acquisition heads at BPOs and customer support centres hiring at volume",
     "Recruiters and recruitment managers at Indian companies that hire every week",

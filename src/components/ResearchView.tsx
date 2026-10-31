@@ -76,8 +76,32 @@ export function ResearchView({ run }: { run: Run }) {
         </p>
       </section>
 
+      {research.rejectedFacts && research.rejectedFacts.length > 0 && (
+        <section className="paper">
+          <h2>Facts dropped by the grounding check</h2>
+          <p style={{ fontSize: 13, color: "var(--graphite)", margin: "0 0 10px" }}>
+            The researcher offered these, but their quote wasn&apos;t found in the page it read, or the fact added a number the quote
+            doesn&apos;t have. The writer never saw them.
+          </p>
+          <ul className="list">
+            {research.rejectedFacts.map((f, i) => (
+              <li key={i}>
+                {f.text} <span style={{ color: "var(--block)" }}>({f.reason})</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       <section className="paper">
         <h2>Pages read</h2>
+        {research.clientSite && research.clientSite.status !== "off" && (
+          <p style={{ margin: "0 0 10px", color: research.clientSite.status === "read" ? "var(--graphite)" : "var(--block)" }}>
+            {research.clientSite.status === "read"
+              ? `Client site read live: ${research.clientSite.pages} page(s) from ${research.clientSite.url}.`
+              : `The client site couldn't be read (${research.clientSite.error}). This run used the verified fact sheet only.`}
+          </p>
+        )}
         {research.pagesRead.length === 0 ? (
           <p style={{ margin: 0, color: "var(--graphite)" }}>
             None. This run used the topic and the client fact sheet only.
@@ -112,6 +136,14 @@ export function ResearchView({ run }: { run: Run }) {
                 {run.models.mock ? "Offline sample (no API calls)" : `${run.models.text} · writer ${run.models.writer} · image ${run.models.image}`}
               </td>
             </tr>
+            {run.usage && (
+              <tr>
+                <td>Tokens</td>
+                <td>
+                  {run.usage.inputTokens.toLocaleString("en-IN")} in · {run.usage.outputTokens.toLocaleString("en-IN")} out
+                </td>
+              </tr>
+            )}
             {run.revision && (
               <tr>
                 <td>Self-revision</td>
