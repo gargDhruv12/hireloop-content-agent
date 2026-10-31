@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { StepName } from "@/lib/content/types";
 
 export type StepState = { status: "waiting" | "running" | "done" | "skipped" | "failed"; detail?: string };
@@ -58,7 +59,9 @@ export function RunProgress({
   const pct = done ? 100 : Math.round((completed / STEPS.length) * 100);
   const mmss = `${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, "0")}`;
 
-  return (
+  // Rendered at the top of the page: the form's glass card (backdrop-filter) would
+  // otherwise become the frame for this fixed overlay and clip it.
+  return createPortal(
     <div className="runprog" role="dialog" aria-modal="true" aria-labelledby="runprog-title">
       <div className="runprog__panel" ref={panel} tabIndex={-1} data-state={error ? "failed" : done ? "done" : "running"}>
         <div className="runprog__head">
@@ -118,6 +121,7 @@ export function RunProgress({
         )}
         {!error && <p className="runprog__note">Nothing is posted anywhere. You review and approve every piece next.</p>}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
