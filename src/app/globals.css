@@ -172,6 +172,15 @@ a {
   color: var(--ink);
 }
 
+.topbar__who {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--graphite);
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .topbar__title {
   color: var(--graphite);
   font-weight: 500;

@@ -105,6 +105,9 @@ export interface Run {
 
 /** One review decision, recorded by the server so the export can show who signed off on what. */
 export interface ReviewLogEntry {
+  /** Who decided, when sign-in is on. `byVerified` is false for a name typed with the shared password. */
+  by?: string;
+  byVerified?: boolean;
   piece: PieceId | "image";
   status: ReviewStatus;
   at: string;

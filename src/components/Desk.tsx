@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ClientProfile } from "@/clients/types";
 import type { ContentPack, ImageBrief } from "@/lib/content/schemas";
-import type { Finding, PieceId, ReviewStatus, Run } from "@/lib/content/types";
+import type { Finding, PieceId, ReviewLogEntry, ReviewStatus, Run } from "@/lib/content/types";
 import { getPieces, setField, withPiece } from "@/lib/content/pieces";
 import { refreshAfterEdit } from "@/lib/content/findings";
 import type { Cost } from "@/lib/ai/pricing";
@@ -54,7 +54,7 @@ export function Desk({
 
   const pieces = useMemo(() => getPieces(pack), [pack]);
   const piece = pieces.find((p) => p.id === view);
-  const pieceFindings = findings.filter((f) => f.pieceId === view);
+  const pieceFindings = useMemo(() => findings.filter((f) => f.pieceId === view), [findings, view]);
   // Pieces the agent rewrote during self-revision can be compared with the first draft.
   const firstDraftPiece =
     piece && run.firstDraft && run.revision?.pieces.includes(piece.id) ? getPieces(run.firstDraft).find((p) => p.id === piece.id) : undefined;
@@ -329,7 +329,7 @@ export function Desk({
             <>
               <div className="stage__head">
                 <h1 className="stage__title">Image</h1>
-                <StatusLabel status={run.review.image} />
+                <StatusLabel status={run.review.image} entry={lastDecision(run, "image")} />
               </div>
               <ImageView
                 key={JSON.stringify(pack.imageBrief)}
@@ -359,7 +359,7 @@ export function Desk({
             <>
               <div className="stage__head">
                 <h1 className="stage__title">{piece.label}</h1>
-                <StatusLabel status={run.review[piece.id]} />
+                <StatusLabel status={run.review[piece.id]} entry={lastDecision(run, piece.id)} />
               </div>
 
               {!editing && before?.view === piece.id && (
@@ -733,8 +733,16 @@ function tabName(t: Tab): string {
   return parts.join(", ");
 }
 
-function StatusLabel({ status }: { status?: ReviewStatus }) {
-  const text = status === "approved" ? "Approved" : status === "changes" ? "Needs changes" : "Waiting for review";
+/** The latest recorded decision on a piece, for "Approved by …". */
+function lastDecision(run: Run, piece: PieceId | "image"): ReviewLogEntry | undefined {
+  return run.reviewLog?.filter((e) => e.piece === piece).at(-1);
+}
+
+function StatusLabel({ status, entry }: { status?: ReviewStatus; entry?: ReviewLogEntry }) {
+  const base = status === "approved" ? "Approved" : status === "changes" ? "Needs changes" : "Waiting for review";
+  // Only when the log's latest decision is this status; names typed with the shared password say so.
+  const by = entry?.by && entry.status === status && status !== "pending" ? ` by ${entry.by}${entry.byVerified ? "" : " (unverified)"}` : "";
+  const text = base + by;
   return (
     <span className="stage__sub" style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
       <span key={status} className="status-dot" data-status={status ?? "pending"} aria-hidden />
