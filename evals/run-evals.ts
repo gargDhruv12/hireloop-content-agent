@@ -16,7 +16,7 @@ import { runPipeline } from "../src/lib/pipeline/run";
 import { aiReview } from "../src/lib/pipeline/check";
 import { lintPack, extractNumbers, numbersInFacts } from "../src/lib/content/lint";
 import { mergeFindings } from "../src/lib/content/findings";
-import { getPieces } from "../src/lib/content/pieces";
+import { getPieces, wordCount } from "../src/lib/content/pieces";
 import { mockFixtures } from "../src/lib/ai/mock";
 import { readUsage } from "../src/lib/ai/gemini";
 import { isMock, models } from "../src/lib/ai/models";
@@ -48,6 +48,8 @@ function score(run: Run) {
   const cited = pieces.filter((p) => p.factIds.length > 0 && p.factIds.every((id) => ids.has(id))).length;
 
   const banned = run.findings.filter((f) => f.kind === "banned_phrase").length;
+  const article = run.research.facts.filter((f) => f.id.startsWith("S")).map((f) => f.id);
+  const cites = new Set(pieces.flatMap((p) => p.factIds));
 
   return {
     blockingFirstDraft: run.revision?.blockingBefore ?? run.findings.filter((f) => f.severity === "block").length,
@@ -59,6 +61,10 @@ function score(run: Run) {
     piecesCiting: `${cited}/${pieces.length}`,
     bannedFinal: banned,
     image: run.image ? "yes" : `no (${run.imageError?.slice(0, 60)})`,
+    blogWords: wordCount(run.pack.blog.body),
+    facts: `${run.research.facts.length} kept, ${run.research.rejectedFacts?.length ?? 0} dropped`,
+    articleCited: !run.input.sourceUrl ? "no link" : article.some((id) => cites.has(id)) ? "yes" : "NO",
+    tokens: run.usage ? `${Math.round(run.usage.inputTokens / 1000)}k / ${Math.round(run.usage.outputTokens / 1000)}k` : "?",
     seconds: Math.round(Object.values(run.timings).reduce((a, b) => a + (b ?? 0), 0) / 1000),
   };
 }
@@ -95,12 +101,12 @@ async function evalCases() {
     `Models: ${isMock() ? "offline sample (MOCK_AI=1)" : `${models.text} / writer ${models.writer} / image ${models.image}`}`,
     `Tokens: ${usage.inputTokens.toLocaleString()} in, ${usage.outputTokens.toLocaleString()} out`,
     "",
-    "| Case | Blocking (first → final) | Revised | Hard limits OK | Numbers traced | Pieces citing facts | Banned phrases left | Warnings | Image | Time |",
-    "|---|---|---|---|---|---|---|---|---|---|",
+    "| Case | Blocking (first → final) | Revised | Hard limits OK | Numbers traced | Pieces citing facts | Banned phrases left | Warnings | Blog words | Research facts | Article cited | Tokens in/out | Image | Time |",
+    "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
     ...rows.map(({ c, s, error }) =>
       s
-        ? `| ${c.name} | ${s.blockingFirstDraft} → ${s.blockingFinal} | ${s.revised} | ${s.limitsPass} | ${s.numbersTraced} | ${s.piecesCiting} | ${s.bannedFinal} | ${s.warnings} | ${s.image} | ${s.seconds}s |`
-        : `| ${c.name} | failed: ${error} | | | | | | | | |`,
+        ? `| ${c.name} | ${s.blockingFirstDraft} → ${s.blockingFinal} | ${s.revised} | ${s.limitsPass} | ${s.numbersTraced} | ${s.piecesCiting} | ${s.bannedFinal} | ${s.warnings} | ${s.blogWords} | ${s.facts} | ${s.articleCited} | ${s.tokens} | ${s.image} | ${s.seconds}s |`
+        : `| ${c.name} | failed: ${error} | | | | | | | | | | | | |`,
     ),
     "",
     "## What the columns mean",
@@ -109,6 +115,9 @@ async function evalCases() {
     "- **Hard limits OK:** fields within platform limits (Google 30/90, X 280…).",
     "- **Numbers traced:** numbers in the drafts that appear in a fact. Anything below 100% was flagged for the reviewer.",
     "- **Pieces citing facts:** pieces whose fact ids all exist. A piece citing nothing can't be traced.",
+    "- **Blog words:** the brief asks for 700–900; under 650 triggers an automatic rewrite.",
+    "- **Research facts:** facts kept after the quote check, and facts dropped because their quote wasn't on the page.",
+    "- **Article cited:** for cases with a link, whether any piece cites a fact from that article (S…).",
     "",
     "## Cases",
     "",

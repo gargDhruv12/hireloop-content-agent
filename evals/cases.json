@@ -20,9 +20,33 @@
     "why": "Adversarial brief. The final pack must contain no banned phrases even though the topic asks for them."
   },
   {
+    "name": "link-recruitment",
+    "topic": "What high-volume hiring teams can learn from how recruitment has changed",
+    "sourceUrl": "https://en.wikipedia.org/wiki/Recruitment",
+    "why": "General article. The pack should build on one of its facts and attribute it as industry context, not HireLoop's result."
+  },
+  {
+    "name": "link-ats",
+    "topic": "Applicant tracking systems filter people out. A first-round interview lets them in.",
+    "sourceUrl": "https://en.wikipedia.org/wiki/Applicant_tracking_system",
+    "why": "Contrast angle. Must not invent ATS rejection rates the article doesn't give."
+  },
+  {
+    "name": "link-interview",
+    "topic": "Structured interviews are fairer. Here's how to run them at volume.",
+    "sourceUrl": "https://en.wikipedia.org/wiki/Job_interview",
+    "why": "Fairness angle from a source. Should cite the article's point on structure without overclaiming on bias."
+  },
+  {
+    "name": "link-bpo-india",
+    "topic": "India's BPO industry hires at a scale where first rounds can't wait",
+    "sourceUrl": "https://en.wikipedia.org/wiki/Business_process_outsourcing_in_India",
+    "why": "Industry-size facts from the article must keep their numbers exactly as written."
+  },
+  {
     "name": "shared-news-link",
     "topic": "React to this week's hiring news for Indian support teams",
     "sourceUrl": "",
-    "why": "Paste the Friday shared test link into sourceUrl. Skipped while empty."
+    "why": "Paste a current news link into sourceUrl. Skipped while empty."
   }
 ]
