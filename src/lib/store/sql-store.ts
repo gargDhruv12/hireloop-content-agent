@@ -38,11 +38,16 @@ function json<T>(value: unknown): T {
   return (typeof value === "string" ? JSON.parse(value) : value) as T;
 }
 
-export function createSqlStore(db: SqlClient): RunStore {
+/**
+ * `schemaDb` creates the tables. On Neon, pass a client on the direct
+ * (unpooled) URL: schema changes belong there, and app queries go through the
+ * pooled one. Without it, `db` does both.
+ */
+export function createSqlStore(db: SqlClient, schemaDb: SqlClient = db): RunStore {
   let ready: Promise<void> | null = null;
   const migrate = () =>
     (ready ??= (async () => {
-      for (const statement of SCHEMA.split(";").map((s) => s.trim()).filter(Boolean)) await db.query(statement);
+      for (const statement of SCHEMA.split(";").map((s) => s.trim()).filter(Boolean)) await schemaDb.query(statement);
     })().catch((err) => {
       ready = null; // let the next request try again
       throw err;

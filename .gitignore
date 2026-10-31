@@ -12,3 +12,4 @@ evals/results/*
 .data-e2e
 test-results
 playwright-report
+.neon
