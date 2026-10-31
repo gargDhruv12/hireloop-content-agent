@@ -18,11 +18,11 @@ export const ResearchSchema = z.object({
   sourceFacts: z
     .array(
       z.object({
-        text: z.string().describe("One fact from the article, in plain words. Keep numbers exactly as written."),
-        quote: z.string().describe("The shortest exact phrase from the article that supports the fact (under 15 words)."),
+        text: z.string().describe("One fact from an outside source, in plain words. Keep numbers exactly as written."),
+        quote: z.string().describe("The shortest exact phrase from that source that supports the fact (under 15 words), copied from one page."),
       }),
     )
-    .describe("Up to 8 facts taken from the supplied article. Empty if no article was supplied."),
+    .describe("Up to 8 facts taken from the outside sources (the supplied article, or pages found by web search). Empty if there are none."),
   clientWebFacts: z
     .array(
       z.object({
