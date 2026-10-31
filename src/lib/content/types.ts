@@ -96,7 +96,7 @@ export interface Run {
   reviewLog?: ReviewLogEntry[];
   timings: Partial<Record<StepName, number>>;
   /** Tokens this run used across all model calls (not counting later rewrites). Optional for older runs. */
-  usage?: { inputTokens: number; outputTokens: number };
+  usage?: Usage;
 }
 
 /** One review decision, recorded by the server so the export can show who signed off on what. */
@@ -115,3 +115,11 @@ export type RunEvent =
   | { type: "step"; step: StepName; status: "running" | "done" | "skipped" | "failed"; detail?: string }
   | { type: "done"; runId: string }
   | { type: "error"; message: string };
+
+/** Tokens a run used. Per-model counts and images exist on runs made after #20. */
+export interface Usage {
+  inputTokens: number;
+  outputTokens: number;
+  byModel?: Record<string, { inputTokens: number; outputTokens: number }>;
+  images?: number;
+}

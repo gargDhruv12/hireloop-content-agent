@@ -4,6 +4,7 @@ import { Desk, type View } from "@/components/Desk";
 import { PIECE_ORDER } from "@/lib/content/pieces";
 import { TopBar } from "@/components/TopBar";
 import { loadRun, storageNotice } from "@/lib/store/runs";
+import { runCost } from "@/lib/ai/pricing";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +25,12 @@ export default async function RunPage({
   return (
     <>
       <TopBar title={run.input.topic} mock={run.models.mock} notice={storageNotice()} />
-      <Desk initialRun={run} initialView={initialView} client={{ name: hireloop.name, bannedPhrases: hireloop.bannedPhrases }} />
+      <Desk
+        initialRun={run}
+        initialView={initialView}
+        client={{ name: hireloop.name, bannedPhrases: hireloop.bannedPhrases }}
+        cost={runCost(run)}
+      />
     </>
   );
 }

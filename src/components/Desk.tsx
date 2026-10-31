@@ -6,6 +6,7 @@ import type { ContentPack, ImageBrief } from "@/lib/content/schemas";
 import type { Finding, PieceId, ReviewStatus, Run } from "@/lib/content/types";
 import { getPieces, setField } from "@/lib/content/pieces";
 import { refreshAfterEdit } from "@/lib/content/findings";
+import type { Cost } from "@/lib/ai/pricing";
 import { Proof } from "./Proof";
 import { Margin } from "./Margin";
 import { Editor } from "./Editor";
@@ -24,9 +25,12 @@ export function Desk({
   initialRun,
   client,
   initialView = "research",
+  cost = null,
 }: {
   initialRun: Run;
   client: Pick<ClientProfile, "bannedPhrases" | "name">;
+  /** Worked out on the server, where the rupee rate is configured. */
+  cost?: Cost | null;
   initialView?: View;
 }) {
   const [run, setRun] = useState(initialRun);
@@ -292,7 +296,7 @@ export function Desk({
                 <h1 className="stage__title">Research and plan</h1>
                 <span className="stage__sub">Check this before the drafts: everything below is built on it.</span>
               </div>
-              <ResearchView run={run} />
+              <ResearchView run={run} cost={cost} />
             </>
           )}
 

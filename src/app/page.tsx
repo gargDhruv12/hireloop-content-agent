@@ -6,6 +6,7 @@ import { TopBar } from "@/components/TopBar";
 import { isMock } from "@/lib/ai/models";
 import { PIECE_ORDER } from "@/lib/content/pieces";
 import { listRuns, storageNotice } from "@/lib/store/runs";
+import { formatInr, runCost } from "@/lib/ai/pricing";
 import candidate from "@/assets/brand/candidate.jpg";
 import glassBars from "@/assets/brand/glass-bars.jpg";
 import heroGlass from "@/assets/brand/hero-glass.jpg";
@@ -36,6 +37,7 @@ export default async function Home() {
   const all = await listRuns(200);
   const recent = all.slice(0, 6);
   const approvedIn = (r: (typeof all)[number]) => Object.values(r.review).filter((s) => s === "approved").length;
+  const spend = all.reduce((sum, r) => sum + (runCost(r)?.inr ?? 0), 0);
   const stats = [
     { label: "Packs written", value: all.length, hint: "Saved on this desk" },
     { label: "Pieces approved", value: all.reduce((n, r) => n + approvedIn(r), 0), hint: "By a person, and logged" },
@@ -45,6 +47,7 @@ export default async function Home() {
       value: all.reduce((n, r) => n + r.findings.filter((f) => f.severity === "block").length, 0),
       hint: "Left after self-revision",
     },
+    { label: "Spend so far", value: formatInr(spend), hint: "Gemini, at listed prices" },
   ];
 
   return (

@@ -66,7 +66,16 @@ export function createFileStore(root = path.join(process.cwd(), ".data")): RunSt
         .filter((r): r is Run => !!r && typeof r.createdAt === "string" && !!r.input)
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
         .slice(0, limit)
-        .map(({ id, createdAt, input, findings, review }) => ({ id, createdAt, input, findings, review }));
+        .map(({ id, createdAt, input, findings, review, usage, models, image }) => ({
+          id,
+          createdAt,
+          input,
+          findings,
+          review,
+          usage,
+          models,
+          hadImage: !!image,
+        }));
     } catch {
       return [];
     }
