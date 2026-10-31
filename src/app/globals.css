@@ -12,7 +12,7 @@
   --paper: #ffffff;
   --ink: #16142e;
   --graphite: #5d5b74;
-  --faint: #8d8ba3;
+  --faint: #66647e; /* 4.5:1+ on white and lavender: it's used for small text */
   --rule: #e3e1ef;
   --rule-strong: #c9c5dd;
 
@@ -2963,7 +2963,7 @@ a {
   --paper: #1a1833;
   --ink: #ecebf7;
   --graphite: #b4b1cc;
-  --faint: #8a87a8;
+  --faint: #a9a6c6;
   --rule: #2c2950;
   --rule-strong: #433f70;
   --client-wash: rgba(143, 124, 245, 0.16);
@@ -2990,7 +2990,7 @@ a {
   --paper: #ffffff;
   --ink: #16142e;
   --graphite: #5d5b74;
-  --faint: #8d8ba3;
+  --faint: #66647e; /* 4.5:1+ on white and lavender: it's used for small text */
   --rule: #e3e1ef;
   --rule-strong: #c9c5dd;
   --client-ink: #5b45d0;
@@ -3019,7 +3019,7 @@ a {
   --paper: #1a1833;
   --ink: #ecebf7;
   --graphite: #b4b1cc;
-  --faint: #8a87a8;
+  --faint: #a9a6c6;
   --rule: #2c2950;
   --rule-strong: #433f70;
   --client-wash: rgba(143, 124, 245, 0.16);
@@ -3046,7 +3046,7 @@ a {
   --paper: #ffffff;
   --ink: #16142e;
   --graphite: #5d5b74;
-  --faint: #8d8ba3;
+  --faint: #66647e; /* 4.5:1+ on white and lavender: it's used for small text */
   --rule: #e3e1ef;
   --rule-strong: #c9c5dd;
   --client-ink: #5b45d0;
