@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
     "smoke": "tsx scripts/smoke.ts",
+    "smoke:postgres": "tsx scripts/smoke.ts --postgres",
     "eval": "tsx evals/run-evals.ts",
     "eval:checker": "tsx evals/run-evals.ts --checker",
     "demo": "node scripts/demo.mjs"
@@ -18,11 +19,14 @@
     "@ai-sdk/google": "^3.0.140",
     "ai": "^6.0.318",
     "next": "^16.0.0",
+    "postgres": "3.4.9",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "zod": "^4.1.8"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.10",
+    "@electric-sql/pglite-socket": "0.2.13",
     "@types/node": "^22.10.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",

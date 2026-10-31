@@ -18,6 +18,14 @@ const dir = mkdtempSync(path.join(tmpdir(), "hireloop-smoke-"));
 process.chdir(dir);
 
 async function main() {
+  // --postgres: the same journey on the Postgres store (an in-memory PGlite database).
+  if (process.argv.includes("--postgres")) {
+    const { setStore } = await import("../src/lib/store/runs");
+    const { createSqlStore } = await import("../src/lib/store/sql-store");
+    const { pgliteClient } = await import("../tests/pglite-client");
+    setStore(createSqlStore(pgliteClient()));
+    console.log("store     ", "postgres (PGlite)");
+  }
   const runs = await import("../src/app/api/runs/route");
   const one = await import("../src/app/api/runs/[id]/route");
   const piece = await import("../src/app/api/runs/[id]/pieces/[pieceId]/route");

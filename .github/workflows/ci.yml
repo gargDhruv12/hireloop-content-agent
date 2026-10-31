@@ -20,6 +20,8 @@ jobs:
       - run: npm test
       # The whole workflow through the real API routes, offline (MOCK_AI=1), no key needed.
       - run: npm run smoke
+      # Same journey on the Postgres store (in-memory PGlite).
+      - run: npm run smoke:postgres
       - run: npm run build
         env:
           MOCK_AI: "1"

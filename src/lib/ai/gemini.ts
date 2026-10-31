@@ -271,6 +271,13 @@ function friendly(outer: unknown, step: string): Error {
   if (/limit:\s*0\b/i.test(raw)) {
     return new Error(`Gemini allows 0 requests for ${step} on this key's tier. Enable billing on the key in Google AI Studio, then try again.`);
   }
+  // The free tier has a daily request cap (20 per model in October 2026); a full pack needs about 10 calls.
+  if (/per day|requests_per_day|PerDay/i.test(raw)) {
+    const wait = /retry in ([\dhms.]+?)(?:\.\d+)?s\b/i.exec(raw)?.[1];
+    return new Error(
+      `This key's daily Gemini quota is used up (${step})${wait ? `; it resets in about ${wait.replace(/(\d+m).*/, "$1")}` : ""}. Enable billing on the key in Google AI Studio for normal limits, or use MOCK_AI=1 meanwhile.`,
+    );
+  }
   if (status === 429 || /rate limit|resource_exhausted|quota/i.test(raw)) {
     return new Error(`Gemini rate limit hit during ${step}. Wait a minute and run again.`);
   }

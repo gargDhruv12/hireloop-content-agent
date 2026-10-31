@@ -116,7 +116,8 @@ src/
       models.ts          model names from .env
       mock.ts            offline sample run (MOCK_AI=1)
     web/fetch-page.ts    reads a web page as plain text (blocks private addresses)
-    store/runs.ts        saves runs and images as files in .data/
+    store/               runs and images: files in .data/ locally, Postgres when DATABASE_URL is set
+                         (runs.ts picks the store; file-store.ts, sql-store.ts; review-log.ts)
   app/
     page.tsx             new pack form + recent packs
     runs/[id]/page.tsx   the review desk
@@ -171,6 +172,7 @@ Tip: `?view=linkedin` (or `blog`, `x`, `meta-2`, `google-1`, `image`…) in the 
 ```bash
 npm test               # unit tests: rules checker, page reader, grounding, citations, review record (no API calls)
 npm run smoke          # the whole workflow end to end, offline, through the real API routes
+npm run smoke:postgres # the same, on the Postgres store (in-memory PGlite, no server needed)
 npm run eval           # runs every case in evals/cases.json against Gemini, writes a report
 npm run eval:checker   # plants 4 known problems and counts how many the checker catches
 npm run typecheck
@@ -205,11 +207,14 @@ Add the Friday shared link to the `shared-news-link` case's `sourceUrl` before t
 | `CLIENT_SITE_URL` | HireLoop demo site | The site the researcher reads live. `off` = fact sheet only |
 | `APP_PASSWORD` | (empty) | **Set before deploying.** Every page and API route then asks for it (HTTP Basic, any user name) |
 | `RUNS_PER_HOUR` | `20` | Packs one address can start per hour; `0` = no cap |
+| `DATABASE_URL` | (empty) | **Set for any hosted deployment.** A Postgres URL; runs and images are stored there and shared by every server instance. Empty = files in `.data/` |
 | `MOCK_AI` | `0` | `1` = offline sample mode, no API calls |
 
 **Rough cost:** about ₹7 of text per pack on Flash (about ₹18 on Argon) plus a few rupees per image, at October 2026 introductory prices. Check Google's pricing page; prices change. Set a spend cap in Google AI Studio.
 
-**Data:** runs and images are saved as files in `.data/` (ignored by git). Since October 2026, new paid-tier Gemini projects store requests by default; switch that off in AI Studio → Logs and datasets if you don't want it.
+**Data:** locally, runs and images are saved as files in `.data/` (ignored by git). With `DATABASE_URL` they go to two Postgres tables, `hl_runs` (the run as JSONB) and `hl_images` (bytes), created on first use. Edits lock the run's row, so approvals and rewrites from different server instances can't overwrite each other. On Vercel without `DATABASE_URL`, the app warns in the top bar that packs won't be kept.
+
+**Free tier:** the Gemini free tier allows 20 requests per model per day, and one pack makes about 10. Enable billing on the key for real use. Since October 2026, new paid-tier Gemini projects store requests by default; switch that off in AI Studio → Logs and datasets if you don't want it.
 
 ---
 
@@ -220,7 +225,7 @@ Add the Friday shared link to the `shared-news-link` case's `sourceUrl` before t
 - **The checker is not a guarantee.** The rules only catch what they're written for, and the AI reviewer can miss a claim or flag a fine one. That's why a person approves everything.
 - **Number tracing is literal.** "Two days" won't be matched against "48 hours", and small counting numbers (1–10) are ignored.
 - **Images can still drift**: odd hands, text in the frame, or a scene that doesn't fit India. Regenerate, or edit the brief.
-- **Storage is local files.** On Vercel the `.data/` folder doesn't persist between requests, and the edit lock only works inside one server process. For a hosted demo, swap `src/lib/store/runs.ts` for Vercel Blob or Supabase (issue #7).
+- **Images are stored in Postgres as bytes.** Fine for a team's volume (a few MB per pack); at large scale, move `saveImage`/`readImage` in `sql-store.ts` to object storage.
 - **The run limit is per server process.** It stops a runaway script, not a determined abuser. Keep a spend cap in Google AI Studio too.
 - **DNS rebinding.** The page reader checks where a host resolves before fetching, but `fetch` resolves it again; a hostile DNS server could answer differently the second time (issue #8).
 - **One client.** The code is client-agnostic (`src/clients/`), but the UI loads HireLoop.

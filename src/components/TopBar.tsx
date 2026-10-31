@@ -1,4 +1,4 @@
-export function TopBar({ title, mock }: { title?: string; mock: boolean }) {
+export function TopBar({ title, mock, notice }: { title?: string; mock: boolean; notice?: string | null }) {
   return (
     <header className="topbar">
       <a href="/" className="topbar__home">
@@ -7,6 +7,11 @@ export function TopBar({ title, mock }: { title?: string; mock: boolean }) {
       </a>
       <span className="topbar__title">{title}</span>
       <span className="topbar__meta">
+        {notice && (
+          <span className="tag tag--offline" title={notice} role="status">
+            Packs won&apos;t be kept
+          </span>
+        )}
         {mock && (
           <span className="tag tag--offline" title="MOCK_AI=1: no API calls, sample output">
             Offline sample mode
