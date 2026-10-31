@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.140",
+    "@vercel/blob": "2.8.2",
     "ai": "^6.0.318",
     "next": "^16.0.0",
     "postgres": "3.4.9",

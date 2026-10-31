@@ -130,3 +130,28 @@ for (const [name, make] of backends) {
     });
   });
 }
+
+test("with object storage, new images go there and old ones still load from the store", async () => {
+  const { withBlobImages } = await import("../src/lib/store/blob-images");
+  const base = createSqlStore(pgliteClient());
+  const old = await base.saveImage("blob-run-01", new Uint8Array([1, 2, 3]), "image/png");
+
+  const blobs = new Map<string, Uint8Array>();
+  const store = withBlobImages(base, {
+    async save(path, bytes) {
+      blobs.set(path, bytes);
+    },
+    async read(path) {
+      return blobs.get(path) ?? null;
+    },
+  });
+  const fresh = await store.saveImage("blob-run-01", new Uint8Array([9, 8, 7]), "image/jpeg");
+  assert.match(fresh, /^blob-run-01-[a-z0-9]+\.jpg$/);
+  assert.deepEqual([...blobs.keys()], [`hireloop/images/${fresh}`]);
+  // The new image isn't in the database; it's read back from object storage.
+  assert.equal(await base.readImage(fresh), null);
+  assert.deepEqual(new Uint8Array((await store.readImage(fresh))!), new Uint8Array([9, 8, 7]));
+  // An image saved before the switch still loads.
+  assert.deepEqual(new Uint8Array((await store.readImage(old))!), new Uint8Array([1, 2, 3]));
+  assert.equal(await store.readImage("../escape.png"), null);
+});
