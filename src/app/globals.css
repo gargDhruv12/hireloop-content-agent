@@ -18,6 +18,13 @@
 
   --client: #5b45d0;
   --client-wash: #efecfd;
+  /* Violet as text and outlines (lighter in dark mode); --client stays the strong fill. */
+  --client-ink: #5b45d0;
+  --client-line: var(--client-line);
+  --notice-bg: #fff8d6;
+  --notice-ink: #6b5400;
+  --hero-top: rgba(255, 255, 255, 0.85);
+  --hero-bottom: rgba(255, 255, 255, 0.45);
 
   /* Glass and night panels (the visual theme) */
   --glass: rgba(255, 255, 255, 0.68);
@@ -76,7 +83,7 @@ a {
 }
 
 :focus-visible {
-  outline: 2px solid var(--client);
+  outline: 2px solid var(--client-ink);
   outline-offset: 2px;
 }
 
@@ -196,9 +203,9 @@ a {
 }
 
 .tag--offline {
-  border-color: var(--warn-ink);
-  color: var(--warn-ink);
-  background: #fff8d6;
+  border-color: var(--notice-ink);
+  color: var(--notice-ink);
+  background: var(--notice-bg);
 }
 
 /* ── Buttons: pills ─────────────────────────────────────────────── */
@@ -224,7 +231,7 @@ a {
 }
 
 .btn:hover:not(:disabled) {
-  border-color: var(--client);
+  border-color: var(--client-ink);
 }
 
 .btn:disabled {
@@ -373,7 +380,7 @@ a {
   border: none;
   background: none;
   padding: 0;
-  color: var(--client);
+  color: var(--client-ink);
   text-decoration: underline;
   text-underline-offset: 3px;
   cursor: pointer;
@@ -441,7 +448,7 @@ a {
 }
 
 .progress li[data-status="running"] .progress__mark {
-  border-color: var(--client);
+  border-color: var(--client-ink);
   border-right-color: transparent;
   animation: spin 0.9s linear infinite;
 }
@@ -1104,7 +1111,7 @@ a {
 }
 
 .fact__id[data-origin="source"] {
-  color: var(--client);
+  color: var(--client-ink);
 }
 
 .fact__ref {
@@ -1327,7 +1334,7 @@ a {
   padding: 5px 12px;
   border-radius: 999px;
   background: var(--client-wash);
-  color: var(--client);
+  color: var(--client-ink);
   font-size: 12.5px;
   font-weight: 700;
   letter-spacing: 0.01em;
@@ -1378,7 +1385,7 @@ a {
   border-radius: 32px;
   background:
     radial-gradient(500px 360px at 80% 40%, rgba(143, 124, 245, 0.28), transparent 70%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.45));
+    linear-gradient(180deg, var(--hero-top), var(--hero-bottom));
   border: 1px solid var(--glass-edge);
   box-shadow: var(--shadow-soft);
   overflow: hidden;
@@ -1444,7 +1451,7 @@ a {
 }
 
 .float b {
-  color: var(--client);
+  color: var(--client-ink);
   font-size: 18px;
   margin-right: 4px;
 }
@@ -1751,7 +1758,7 @@ a {
 
 .channel--accent {
   background: linear-gradient(160deg, #ece8ff, #dcd5ff);
-  border-color: #cfc6ff;
+  border-color: var(--client-line);
 }
 
 .channel__name {
@@ -1764,7 +1771,7 @@ a {
   font-size: 30px;
   font-weight: 800;
   letter-spacing: -0.03em;
-  color: var(--client);
+  color: var(--client-ink);
 }
 
 .channel__what {
@@ -1806,7 +1813,7 @@ a {
 .textarea:focus,
 .select:focus {
   outline: none;
-  border-color: var(--client);
+  border-color: var(--client-ink);
   box-shadow: 0 0 0 4px rgba(91, 69, 208, 0.14);
 }
 
@@ -1835,7 +1842,7 @@ a {
 }
 
 .progress li[data-status="running"] {
-  border-color: #cfc6ff;
+  border-color: var(--client-line);
   box-shadow: 0 0 0 4px rgba(91, 69, 208, 0.08);
 }
 
@@ -2561,14 +2568,14 @@ a {
 
 .runstep[data-status="running"] {
   color: var(--ink);
-  border-color: #cfc6ff;
+  border-color: var(--client-line);
   box-shadow: 0 0 0 4px rgba(91, 69, 208, 0.1), var(--shadow-soft);
   transform: translateY(-2px);
 }
 
 .runstep[data-status="running"] .runstep__mark {
-  border-color: var(--client);
-  color: var(--client);
+  border-color: var(--client-ink);
+  color: var(--client-ink);
   animation: pulse 1.2s ease-in-out infinite;
 }
 
@@ -2704,7 +2711,7 @@ a {
   padding: 18px 20px;
   border-radius: var(--radius-sheet);
   background: var(--glass-strong);
-  border: 1px solid #cfc6ff;
+  border: 1px solid var(--client-line);
   box-shadow: 0 0 0 4px rgba(91, 69, 208, 0.06), var(--shadow-soft);
   animation: rise-in 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
 }
@@ -2780,7 +2787,7 @@ a {
 .changes__toggle {
   margin-bottom: 8px;
   padding-inline: 0;
-  color: var(--client);
+  color: var(--client-ink);
 }
 
 /* ── All packs ───────────────────────────────────────────────────── */
@@ -2933,10 +2940,134 @@ a {
   justify-content: space-between;
   gap: 10px;
   border-radius: 16px;
-  background: #fff8d6;
-  color: var(--warn-ink);
+  background: var(--notice-bg);
+  color: var(--notice-ink);
   font-size: 14px;
   width: calc(100% - 40px);
+}
+
+
+/* ── Dark theme ──────────────────────────────────────────────────── */
+/* Follows the system unless the top-bar toggle picked light or dark (data-theme on <html>). */
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+  color-scheme: dark;
+  --desk: #0e0d1c;
+  --paper: #1a1833;
+  --ink: #ecebf7;
+  --graphite: #b4b1cc;
+  --faint: #8a87a8;
+  --rule: #2c2950;
+  --rule-strong: #433f70;
+  --client-wash: rgba(143, 124, 245, 0.16);
+  --client-ink: #b8a9ff;
+  --client-line: rgba(143, 124, 245, 0.5);
+  --glass: rgba(30, 27, 60, 0.66);
+  --glass-strong: rgba(34, 31, 66, 0.9);
+  --glass-edge: rgba(255, 255, 255, 0.08);
+  --night: #0b0a18;
+  --night-2: #1f1c42;
+  --shadow-soft: 0 10px 30px -12px rgba(0, 0, 0, 0.6), 0 2px 6px -2px rgba(0, 0, 0, 0.4);
+  --shadow-lift: 0 24px 60px -24px rgba(0, 0, 0, 0.75);
+  --block: #e04a5f;
+  --block-wash: rgba(224, 74, 95, 0.16);
+  --traced: #27925f;
+  --traced-wash: rgba(39, 146, 95, 0.18);
+  --notice-bg: #3a3313;
+  --notice-ink: #ffe39a;
+  --hero-top: rgba(34, 31, 66, 0.92);
+  --hero-bottom: rgba(26, 24, 51, 0.55);
+  }
+  :root:not([data-theme="light"]) .proof {
+  color-scheme: light;
+  --paper: #ffffff;
+  --ink: #16142e;
+  --graphite: #5d5b74;
+  --faint: #8d8ba3;
+  --rule: #e3e1ef;
+  --rule-strong: #c9c5dd;
+  --client-ink: #5b45d0;
+  --client-wash: #efecfd;
+  --glass-strong: rgba(255, 255, 255, 0.94);
+  --glass-edge: rgba(255, 255, 255, 0.9);
+  --block: #c8102e;
+  --block-wash: #fdecee;
+  --traced: #1f7a4d;
+  --traced-wash: #e7f4ec;
+  color: var(--ink);
+}
+:root:not([data-theme="light"]) .hero__art img {
+  /* The render sits on white: invert its light and screen it, so the glass glows on dark. */
+  mix-blend-mode: screen;
+  filter: invert(1) hue-rotate(180deg) saturate(1.2);
+}
+:root:not([data-theme="light"]) .channel--accent {
+  background: linear-gradient(160deg, rgba(143, 124, 245, 0.28), rgba(143, 124, 245, 0.12));
+}
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --desk: #0e0d1c;
+  --paper: #1a1833;
+  --ink: #ecebf7;
+  --graphite: #b4b1cc;
+  --faint: #8a87a8;
+  --rule: #2c2950;
+  --rule-strong: #433f70;
+  --client-wash: rgba(143, 124, 245, 0.16);
+  --client-ink: #b8a9ff;
+  --client-line: rgba(143, 124, 245, 0.5);
+  --glass: rgba(30, 27, 60, 0.66);
+  --glass-strong: rgba(34, 31, 66, 0.9);
+  --glass-edge: rgba(255, 255, 255, 0.08);
+  --night: #0b0a18;
+  --night-2: #1f1c42;
+  --shadow-soft: 0 10px 30px -12px rgba(0, 0, 0, 0.6), 0 2px 6px -2px rgba(0, 0, 0, 0.4);
+  --shadow-lift: 0 24px 60px -24px rgba(0, 0, 0, 0.75);
+  --block: #e04a5f;
+  --block-wash: rgba(224, 74, 95, 0.16);
+  --traced: #27925f;
+  --traced-wash: rgba(39, 146, 95, 0.18);
+  --notice-bg: #3a3313;
+  --notice-ink: #ffe39a;
+  --hero-top: rgba(34, 31, 66, 0.92);
+  --hero-bottom: rgba(26, 24, 51, 0.55);
+}
+:root[data-theme="dark"] .proof {
+  color-scheme: light;
+  --paper: #ffffff;
+  --ink: #16142e;
+  --graphite: #5d5b74;
+  --faint: #8d8ba3;
+  --rule: #e3e1ef;
+  --rule-strong: #c9c5dd;
+  --client-ink: #5b45d0;
+  --client-wash: #efecfd;
+  --glass-strong: rgba(255, 255, 255, 0.94);
+  --glass-edge: rgba(255, 255, 255, 0.9);
+  --block: #c8102e;
+  --block-wash: #fdecee;
+  --traced: #1f7a4d;
+  --traced-wash: #e7f4ec;
+  color: var(--ink);
+}
+:root[data-theme="dark"] .hero__art img {
+  /* The render sits on white: invert its light and screen it, so the glass glows on dark. */
+  mix-blend-mode: screen;
+  filter: invert(1) hue-rotate(180deg) saturate(1.2);
+}
+:root[data-theme="dark"] .channel--accent {
+  background: linear-gradient(160deg, rgba(143, 124, 245, 0.28), rgba(143, 124, 245, 0.12));
+}
+
+.theme-toggle {
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 16px;
 }
 
 /* ── Small screens ───────────────────────────────────────────────── */

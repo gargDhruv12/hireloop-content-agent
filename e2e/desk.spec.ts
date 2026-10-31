@@ -125,3 +125,17 @@ test("all packs: search finds a pack, archive hides it from the home page, resto
   await page.goto("/");
   await expect(page.locator(`#recent a[href="${packUrl}"]`)).toHaveCount(1);
 });
+
+test("the theme toggle switches to dark and remembers it", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.goto("/");
+  const bg = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  const light = await bg();
+  await page.getByRole("button", { name: "Switch to dark mode" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  expect(await bg()).not.toBe(light);
+  // Applied before the first paint on the next load, not after.
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(page.getByRole("button", { name: "Switch to light mode" })).toBeVisible();
+});
