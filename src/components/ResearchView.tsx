@@ -103,6 +103,12 @@ export function ResearchView({ run, cost }: { run: Run; cost?: Cost | null }) {
               : `The client site couldn't be read (${research.clientSite.error}). This run used the verified fact sheet only.`}
           </p>
         )}
+        {research.sourceKind === "search" && (
+          <p style={{ margin: "0 0 10px", color: "var(--graphite)" }}>
+            No link was given, so the agent searched the web and read the pages below. Their facts (S…) passed the same quote check as
+            an article.
+          </p>
+        )}
         {research.pagesRead.length === 0 ? (
           <p style={{ margin: 0, color: "var(--graphite)" }}>
             None. This run used the topic and the client fact sheet only.
@@ -151,6 +157,7 @@ export function ResearchView({ run, cost }: { run: Run; cost?: Cost | null }) {
                 <td>
                   About {formatInr(cost.inr)} (${cost.usd.toFixed(3)}){cost.estimatedFromTotals ? ", estimated from total tokens" : ""}
                   {cost.unpriced.length > 0 && <>. Not counted: {cost.unpriced.join(", ")} (no price on file)</>}
+                  {(run.usage?.searches ?? 0) > 0 && <>. Plus {run.usage!.searches} web search(es), which Google bills separately</>}
                   <span style={{ display: "block", fontSize: 12.5, color: "var(--faint)" }}>
                     Google&apos;s listed prices for the date of this run, at ₹{cost.rate}/$.
                   </span>

@@ -209,6 +209,7 @@ Add the Friday shared link to the `shared-news-link` case's `sourceUrl` before t
 | `FALLBACK_TEXT_MODEL` | (empty) | Comma-separated models tried in order when the main one is overloaded or rate-limited, e.g. `gemini-3.5-flash,gemini-3.7-flash` |
 | `THINKING_LEVEL` | `low` | Gemini 3+ thinking level. `low` is much faster; raise it if quality drops |
 | `CLIENT_SITE_URL` | HireLoop demo site | The site the researcher reads live. `off` = fact sheet only |
+| `WEB_SEARCH` | (on) | Topic-only packs search the web for up to 3 sources; `off` turns it off. Google bills each search separately |
 | `APP_PASSWORD` | (empty) | **Set before deploying.** Every page and API route then asks for it (HTTP Basic, any user name) |
 | `RUNS_PER_HOUR` | `20` | Packs one address can start per hour; `0` = no cap |
 | `USD_INR` | `95` | Rupees per dollar for the cost shown on each pack. Model prices live in `src/lib/ai/pricing.ts` (Google's listed Standard prices, checked 31 Oct 2026) |
@@ -227,7 +228,7 @@ Add the Friday shared link to the `shared-news-link` case's `sourceUrl` before t
 ## Known limitations
 
 - **Pages that need JavaScript or a login can't be read.** The page reader fetches plain HTML. Paste the article text into the notes box instead; the run will say when a link failed.
-- **Topic-only runs don't search the web.** Without a link, the agent writes from the client fact sheet alone. This is deliberate: it can't cite what it didn't read.
+- **Web search reads at most 3 pages.** Without a link, the agent searches the web (Gemini's Google Search tool), reads up to 3 pages with the same safe page reader, and keeps only facts whose quotes are on those pages. Pages that need JavaScript are skipped. `WEB_SEARCH=off` turns it off, and the pack is then written from the fact sheet alone.
 - **The checker is not a guarantee.** The rules only catch what they're written for, and the AI reviewer can miss a claim or flag a fine one. That's why a person approves everything.
 - **Number tracing knows units, not meaning.** Durations compare in hours ("two days" = "48 hours", but "15-minute" ≠ "15 hours"), and lakh, crore and k are scaled. It can't tell that "about two days" is a rounding of "45 hours", and bare counting numbers (1–10, "three ways") are ignored.
 - **Images can still drift**: odd hands, text in the frame, or a scene that doesn't fit India. Regenerate, or edit the brief.
