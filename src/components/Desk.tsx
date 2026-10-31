@@ -4,9 +4,10 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import type { ClientProfile } from "@/clients/types";
 import type { ContentPack, ImageBrief } from "@/lib/content/schemas";
 import type { Finding, PieceId, ReviewStatus, Run } from "@/lib/content/types";
-import { getPieces, setField } from "@/lib/content/pieces";
+import { getPieces, setField, withPiece } from "@/lib/content/pieces";
 import { refreshAfterEdit } from "@/lib/content/findings";
 import type { Cost } from "@/lib/ai/pricing";
+import { Changes } from "./Changes";
 import { Proof } from "./Proof";
 import { Margin } from "./Margin";
 import { Editor } from "./Editor";
@@ -43,6 +44,9 @@ export function Desk({
   const [busy, setBusy] = useState<null | "save" | "rewrite" | "image" | "decide" | "download">(null);
   const [note, setNote] = useState("");
   const [showRewrite, setShowRewrite] = useState(false);
+  // The piece as it was before the last "Ask the agent to rewrite", until kept or undone.
+  const [before, setBefore] = useState<{ view: View; pack: ContentPack } | null>(null);
+  const [showFirstDraft, setShowFirstDraft] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   // Which way the last tab switch went, so the new view slides in from that side.
@@ -51,6 +55,9 @@ export function Desk({
   const pieces = useMemo(() => getPieces(pack), [pack]);
   const piece = pieces.find((p) => p.id === view);
   const pieceFindings = findings.filter((f) => f.pieceId === view);
+  // Pieces the agent rewrote during self-revision can be compared with the first draft.
+  const firstDraftPiece =
+    piece && run.firstDraft && run.revision?.pieces.includes(piece.id) ? getPieces(run.firstDraft).find((p) => p.id === piece.id) : undefined;
   const blocking = pieceFindings.filter((f) => f.severity === "block").length;
   const imageUrl = run.image ? `/api/runs/${run.id}/image?v=${run.image.file}` : undefined;
   const approvedCount = [...pieces.map((p) => p.id), "image" as const].filter((id) => run.review[id] === "approved").length;
@@ -114,6 +121,8 @@ export function Desk({
     if (window.scrollY > 0) window.scrollTo({ top: 0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
     setEditing(false);
     setShowRewrite(false);
+    setShowFirstDraft(false);
+    setBefore(null);
     setActive(null);
     setError(null);
   }
@@ -150,6 +159,8 @@ export function Desk({
   async function rewrite() {
     setBusy("rewrite");
     setError(null);
+    // Kept so the reviewer can see what changed, and go back.
+    const previous = run.pack;
     const out = await api(`/api/runs/${run.id}/pieces/${view}`, "POST", { note }, "Rewrite failed.");
     setBusy(null);
     if ("error" in out) return setError(out.error);
@@ -159,7 +170,21 @@ export function Desk({
     setFindings(data.findings);
     setNote("");
     setShowRewrite(false);
+    setBefore({ view, pack: previous });
     setToast("Rewritten and re-checked");
+  }
+
+  /** Put the version from before the last rewrite back, re-checked and pending review. */
+  async function undoRewrite() {
+    if (!before || before.view !== view) return;
+    setBusy("save");
+    const saved = await patch({ pack: withPiece(run.pack, before.pack, view as PieceId), review: { [view]: "pending" } });
+    setBusy(null);
+    if (!saved) return;
+    setPack(saved.pack);
+    setFindings(saved.findings);
+    setBefore(null);
+    setToast("Back to the previous version");
   }
 
   async function regenerateImage(brief: ImageBrief) {
@@ -336,6 +361,35 @@ export function Desk({
                 <h1 className="stage__title">{piece.label}</h1>
                 <StatusLabel status={run.review[piece.id]} />
               </div>
+
+              {!editing && before?.view === piece.id && (
+                <div className="sheet">
+                  <Changes
+                    title="What the rewrite changed"
+                    before={getPieces(before.pack).find((p) => p.id === piece.id)?.fields ?? []}
+                    after={piece.fields}
+                    actions={
+                      <>
+                        <button className="btn btn--primary" onClick={() => setBefore(null)}>
+                          Keep the rewrite
+                        </button>
+                        <button className="btn btn--glass" disabled={busy === "save"} onClick={undoRewrite}>
+                          {busy === "save" ? "Going back…" : "Go back to the previous version"}
+                        </button>
+                      </>
+                    }
+                  />
+                </div>
+              )}
+
+              {!editing && before?.view !== piece.id && firstDraftPiece && (
+                <div className="sheet">
+                  <button className="btn btn--quiet changes__toggle" aria-expanded={showFirstDraft} onClick={() => setShowFirstDraft((s) => !s)}>
+                    {showFirstDraft ? "Hide the first draft" : "The agent fixed this piece itself. Compare with the first draft"}
+                  </button>
+                  {showFirstDraft && <Changes title="What self-revision changed" before={firstDraftPiece.fields} after={piece.fields} />}
+                </div>
+              )}
 
               <div className="sheet">
                 {editing ? (

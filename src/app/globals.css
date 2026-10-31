@@ -2695,6 +2695,94 @@ a {
   }
 }
 
+/* ── What a rewrite changed ──────────────────────────────────────── */
+
+.changes {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 18px 20px;
+  border-radius: var(--radius-sheet);
+  background: var(--glass-strong);
+  border: 1px solid #cfc6ff;
+  box-shadow: 0 0 0 4px rgba(91, 69, 208, 0.06), var(--shadow-soft);
+  animation: rise-in 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+
+.changes__head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13.5px;
+  color: var(--graphite);
+}
+
+.changes__head b {
+  color: var(--ink);
+  font-size: 15px;
+}
+
+.changes__key {
+  margin-left: 10px;
+}
+
+.changes__label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--graphite);
+  margin-bottom: 4px;
+}
+
+.changes__text {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 15.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.changes ins,
+.changes del {
+  text-decoration-thickness: 1.5px;
+  border-radius: 3px;
+  padding: 0 1px;
+}
+
+.changes ins {
+  background: var(--traced-wash);
+  color: var(--traced);
+  text-decoration: none;
+}
+
+.changes del {
+  background: var(--block-wash);
+  color: var(--block);
+  text-decoration: line-through;
+}
+
+.changes__same {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--faint);
+}
+
+.changes__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.changes__toggle {
+  margin-bottom: 8px;
+  padding-inline: 0;
+  color: var(--client);
+}
+
 /* ── Small screens ───────────────────────────────────────────────── */
 
 @media (max-width: 860px) {
