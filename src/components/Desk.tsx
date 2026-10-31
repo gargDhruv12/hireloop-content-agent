@@ -3,10 +3,11 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ClientProfile } from "@/clients/types";
 import type { ContentPack, ImageBrief } from "@/lib/content/schemas";
-import type { Finding, PieceId, ReviewLogEntry, ReviewStatus, Run } from "@/lib/content/types";
+import type { Finding, PieceId, ReviewLogEntry, ReviewStatus, Run, SendLogEntry } from "@/lib/content/types";
 import { getPieces, setField, withPiece } from "@/lib/content/pieces";
 import { refreshAfterEdit } from "@/lib/content/findings";
 import type { Cost } from "@/lib/ai/pricing";
+import { SENDABLE } from "@/lib/scheduler-pieces";
 import { Changes } from "./Changes";
 import { Proof } from "./Proof";
 import { Margin } from "./Margin";
@@ -27,11 +28,14 @@ export function Desk({
   client,
   initialView = "research",
   cost = null,
+  scheduler = null,
 }: {
   initialRun: Run;
   client: Pick<ClientProfile, "bannedPhrases" | "name" | "brand" | "ctaPattern" | "primaryCta">;
   /** Worked out on the server, where the rupee rate is configured. */
   cost?: Cost | null;
+  /** The scheduler's name when SCHEDULER_WEBHOOK_URL is set; null hides "Send … as a draft". */
+  scheduler?: string | null;
   initialView?: View;
 }) {
   const [run, setRun] = useState(initialRun);
@@ -41,7 +45,7 @@ export function Desk({
   const [editing, setEditing] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [active, setActive] = useState<string | null>(null);
-  const [busy, setBusy] = useState<null | "save" | "rewrite" | "image" | "decide" | "download">(null);
+  const [busy, setBusy] = useState<null | "save" | "rewrite" | "image" | "decide" | "download" | "send">(null);
   const [note, setNote] = useState("");
   const [showRewrite, setShowRewrite] = useState(false);
   // The piece as it was before the last "Ask the agent to rewrite", until kept or undone.
@@ -172,6 +176,19 @@ export function Desk({
     setShowRewrite(false);
     setBefore({ view, pack: previous });
     setToast("Rewritten and re-checked");
+  }
+
+  /** Send the approved post to the team's scheduler as a draft. Failed attempts are recorded too. */
+  async function sendToScheduler() {
+    setBusy("send");
+    setError(null);
+    const res = await fetch(`/api/runs/${run.id}/pieces/${view}/send`, { method: "POST" }).catch(() => null);
+    const data = res ? await res.json().catch(() => null) : null;
+    setBusy(null);
+    const updated = (res?.ok ? data : data?.run) as Run | undefined;
+    if (updated?.id) setRun(updated);
+    if (!res?.ok) return setError(data?.error ?? "Couldn't reach the server to send.");
+    setToast(`Sent to ${scheduler} as a draft`);
   }
 
   /** Put the version from before the last rewrite back, re-checked and pending review. */
@@ -441,6 +458,11 @@ export function Desk({
                     <button className="btn" onClick={() => setShowRewrite((s) => !s)} aria-expanded={showRewrite}>
                       Ask the agent to rewrite
                     </button>
+                    {scheduler && SENDABLE.includes(piece.id) && run.review[piece.id] === "approved" && (
+                      <button className="btn btn--glass" disabled={busy === "send"} onClick={sendToScheduler}>
+                        {busy === "send" ? "Sending…" : `Send to ${scheduler} as a draft`}
+                      </button>
+                    )}
                     <span className="decision__spacer" />
                     {run.review[piece.id] !== "changes" && (
                       <button className="btn btn--quiet" onClick={() => decide("changes")}>
@@ -450,6 +472,10 @@ export function Desk({
                   </>
                 )}
               </div>
+
+              {!editing && lastSend(run, piece.id) && (
+                <SendStatus entry={lastSend(run, piece.id)!} />
+              )}
 
               {!editing && blocking > 0 && (
                 <div className="decision" style={{ marginTop: 8 }}>
@@ -749,5 +775,19 @@ function StatusLabel({ status, entry }: { status?: ReviewStatus; entry?: ReviewL
       <span key={status} className="status-dot" data-status={status ?? "pending"} aria-hidden />
       {text}
     </span>
+  );
+}
+
+function lastSend(run: Run, piece: PieceId): SendLogEntry | undefined {
+  return run.sendLog?.filter((e) => e.piece === piece).at(-1);
+}
+
+function SendStatus({ entry }: { entry: SendLogEntry }) {
+  const when = new Date(entry.at).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+  const by = entry.by ? ` by ${entry.by}${entry.byVerified ? "" : " (unverified)"}` : "";
+  return (
+    <p className="decision send-status" data-ok={entry.ok}>
+      {entry.ok ? `Sent to ${entry.to} as a draft, ${when}${by}.` : `Sending to ${entry.to} failed, ${when}: ${entry.error ?? "unknown error"}`}
+    </p>
   );
 }

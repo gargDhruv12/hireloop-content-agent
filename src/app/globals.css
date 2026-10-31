@@ -3085,6 +3085,15 @@ a {
   font-size: 16px;
 }
 
+.send-status {
+  font-size: 13px;
+  color: var(--traced);
+}
+
+.send-status[data-ok="false"] {
+  color: var(--block);
+}
+
 /* ── Small screens ───────────────────────────────────────────────── */
 
 @media (max-width: 860px) {

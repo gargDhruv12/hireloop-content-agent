@@ -5,6 +5,7 @@ import { PIECE_ORDER } from "@/lib/content/pieces";
 import { TopBar } from "@/components/TopBar";
 import { loadRun, storageNotice } from "@/lib/store/runs";
 import { runCost } from "@/lib/ai/pricing";
+import { schedulerConfig } from "@/lib/scheduler";
 import { ArchiveButton } from "@/components/ArchiveButton";
 
 export const dynamic = "force-dynamic";
@@ -39,6 +40,7 @@ export default async function RunPage({
           clientById(run.input.clientId),
         )}
         cost={runCost(run)}
+        scheduler={schedulerConfig()?.name ?? null}
       />
     </>
   );

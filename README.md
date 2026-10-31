@@ -215,6 +215,9 @@ Add the Friday shared link to the `shared-news-link` case's `sourceUrl` before t
 | `APP_USERS` | (empty) | Named reviewers, `Name:password` pairs (or `Name:sha256:<hex>`), comma-separated. Each approval records who made it, shown on the piece and in the downloaded review record. With only `APP_PASSWORD`, names are as typed and marked unverified |
 | `RUNS_PER_HOUR` | `20` | Packs one address can start per hour; `0` = no cap |
 | `USD_INR` | `95` | Rupees per dollar for the cost shown on each pack. Model prices live in `src/lib/ai/pricing.ts` (Google's listed Standard prices, checked 31 Oct 2026) |
+| `SCHEDULER_WEBHOOK_URL` | (empty) | Turns on "Send to … as a draft" for approved LinkedIn, X and Instagram posts (see [Sending drafts to a scheduler](#sending-drafts-to-a-scheduler)) |
+| `SCHEDULER_WEBHOOK_SECRET` | (empty) | Signs each request: `x-hireloop-signature: sha256=<HMAC-SHA256 of the body>` |
+| `SCHEDULER_NAME` | `the scheduler` | The name on the button, e.g. `Buffer` |
 | `DATABASE_URL` | (empty) | **Set for any hosted deployment.** A Postgres URL; runs and images are stored there and shared by every server instance. Empty = files in `.data/` |
 | `DATABASE_POOL_MAX` | `5` | Postgres connections per server instance. Lower it if your database caps connections |
 | `BLOB_READ_WRITE_TOKEN` | (empty) | Store generated images in Vercel Blob (private: no public URL, served only through the app) instead of the database. Images saved earlier still load |
@@ -227,6 +230,19 @@ Add the Friday shared link to the `shared-news-link` case's `sourceUrl` before t
 **Free tier:** the Gemini free tier allows 20 requests per model per day, and one pack makes about 10. Enable billing on the key for real use. Since October 2026, new paid-tier Gemini projects store requests by default; switch that off in AI Studio → Logs and datasets if you don't want it.
 
 ---
+
+## Sending drafts to a scheduler
+
+Nothing is ever posted by the desk. With `SCHEDULER_WEBHOOK_URL` set, an **approved** LinkedIn, X or Instagram post gets a **Send to … as a draft** button. It POSTs JSON to the webhook, and every attempt is recorded on the pack and in the review record of the downloaded `approved.md`, failures included.
+
+```json
+{ "status": "draft", "channel": "linkedin", "client": "HireLoop", "runId": "…", "topic": "…",
+  "text": "the post as it should be pasted", "thread": ["X only: each post"],
+  "image": { "mediaType": "image/jpeg", "base64": "…", "altText": "…" },
+  "approvedBy": "Asha", "sentAt": "2026-10-31T12:00:00.000Z" }
+```
+
+`image` is included only when the pack's image is approved too. To land posts in Buffer: in Zapier or Make, start with a *Catch webhook* trigger, paste its URL into `SCHEDULER_WEBHOOK_URL`, and add Buffer's *Create draft* (or *Add to queue* only if your team reviews the queue) for the right profile per `channel`. With `SCHEDULER_WEBHOOK_SECRET` set, check `x-hireloop-signature` before acting.
 
 ## Known limitations
 
