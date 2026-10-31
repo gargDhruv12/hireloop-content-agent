@@ -139,3 +139,17 @@ test("the theme toggle switches to dark and remembers it", async ({ page }) => {
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await expect(page.getByRole("button", { name: "Switch to light mode" })).toBeVisible();
 });
+
+test("a pack for another client shows that client's brand, not HireLoop's", async ({ page }) => {
+  await page.goto("/");
+  await page.getByLabel("Client").selectOption({ label: "Brightpath Tutors (sample)" });
+  // The audiences follow the client.
+  await expect(page.getByLabel("Write for")).toHaveValue("Parents of Class 9–12 students in Indian cities");
+  await page.getByLabel("Topic").fill("Board exam revision without the panic");
+  await page.getByRole("button", { name: "Write the content pack" }).click();
+  await page.waitForURL(/\/runs\/[a-z0-9-]+/);
+  await page.getByRole("tab", { name: /^LinkedIn post/ }).click();
+  const proof = page.locator(".sheet .proof").first();
+  await expect(proof.locator(".post__name")).toHaveText("Brightpath Tutors");
+  await expect(proof).toContainText("Live online tutoring for Classes 9–12");
+});

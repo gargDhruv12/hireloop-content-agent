@@ -280,6 +280,8 @@ export function mockStructured(task: MockTask, prompt: string): unknown {
       if (note && current) return offlineRewrite(JSON.parse(current), note);
       const revised = fixed[id];
       if (revised) return structuredClone(revised);
+      // No stored fix (for example another client's rules flagged the sample text): keep the piece.
+      if (current) return JSON.parse(current);
       throw new Error(`Mock has no revised version of ${id}.`);
     }
     default:

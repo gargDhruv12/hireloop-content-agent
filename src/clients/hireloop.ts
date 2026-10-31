@@ -6,7 +6,9 @@ import type { ClientProfile } from "./types";
  * must not claim it.
  */
 export const hireloop: ClientProfile = {
+  id: "hireloop",
   name: "HireLoop",
+  brand: { domain: "hireloop.in", handle: "hireloop", tagline: "AI interviews for first-round hiring" },
   oneLiner:
     "An AI interviewer that runs the first round of hiring 24×7, by voice or video, in 9 Indian languages. Recruiters make the decision.",
   // The live site is read every run so new facts and changes show up. CLIENT_SITE_URL=off uses the fact sheet only.
@@ -37,6 +39,7 @@ export const hireloop: ClientProfile = {
       "No fear-based or hype language (\"revolutionary\", \"game-changer\", \"10x\").",
     ],
   },
+  ctaPattern: "\\b(?:sample (?:ai )?interview|try (?:a |the )?sample|book a demo|talk to sales)\\b",
   primaryCta: {
     label: "Try a sample AI interview",
     detail: "A 10-minute sample interview by voice, so teams see exactly what candidates experience.",

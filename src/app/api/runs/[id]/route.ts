@@ -1,4 +1,4 @@
-import { hireloop } from "@/clients/hireloop";
+import { clientById } from "@/clients";
 import { ContentPackSchema } from "@/lib/content/schemas";
 import { refreshAfterEdit } from "@/lib/content/findings";
 import { PIECE_ORDER } from "@/lib/content/pieces";
@@ -40,7 +40,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
       if (typeof body.archived === "boolean") out.archived = body.archived;
       if (pack) {
         out.pack = pack;
-        out.findings = refreshAfterEdit(pack, latest.findings, hireloop, latest.research.facts);
+        out.findings = refreshAfterEdit(pack, latest.findings, clientById(latest.input.clientId), latest.research.facts);
       }
       if (body.review && typeof body.review === "object") {
         // Merge, so approving one piece never resets another saved at the same time.

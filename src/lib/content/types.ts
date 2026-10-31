@@ -72,6 +72,8 @@ export type StepName = "research" | "plan" | "write" | "check" | "revise" | "ima
 
 export interface RunInput {
   topic: string;
+  /** Which client the pack is for (see src/clients). Missing on older runs, which are HireLoop's. */
+  clientId?: string;
   sourceUrl?: string;
   audience?: string;
   notes?: string;

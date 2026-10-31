@@ -12,7 +12,15 @@ const EXAMPLES = [
 ];
 
 
-export function BriefForm({ audiences }: { audiences: string[] }) {
+export interface ClientChoice {
+  id: string;
+  name: string;
+  audiences: string[];
+}
+
+export function BriefForm({ clients }: { clients: ClientChoice[] }) {
+  const [clientId, setClientId] = useState(clients[0].id);
+  const audiences = clients.find((c) => c.id === clientId)?.audiences ?? clients[0].audiences;
   const router = useRouter();
   const [topic, setTopic] = useState("");
   const [sourceUrl, setSourceUrl] = useState("");
@@ -41,7 +49,7 @@ export function BriefForm({ audiences }: { audiences: string[] }) {
       const res = await fetch("/api/runs", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ topic, sourceUrl, audience, notes }),
+        body: JSON.stringify({ topic, sourceUrl, audience, notes, clientId }),
       }).catch(() => {
         throw new Error("The server couldn't be reached. Check that npm run dev is still running.");
       });
@@ -119,6 +127,32 @@ export function BriefForm({ audiences }: { audiences: string[] }) {
           ))}
         </div>
       </div>
+
+      {clients.length > 1 && (
+        <div className="field">
+          <label className="field__label" htmlFor="client">
+            Client
+          </label>
+          <select
+            id="client"
+            className="select"
+            value={clientId}
+            onChange={(e) => {
+              const next = clients.find((c) => c.id === e.target.value) ?? clients[0];
+              setClientId(next.id);
+              // Each client has its own audiences.
+              setAudience(next.audiences[0]);
+            }}
+            disabled={running}
+          >
+            {clients.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <div className="brief__row">
         <div className="field">
