@@ -279,10 +279,13 @@ function numberTokens(text: string): Token[] {
     const raw = m[0].trim();
     // Skip digits glued to letters (e.g. "B2B", "H1", "DPDP2023" is fine either way).
     if (/[A-Za-z]/.test(text[start - 1] ?? "")) continue;
-    const value = normaliseNumber(raw);
+    let value = normaliseNumber(raw);
     if (!value) continue;
     const isMoney = /₹|rs|inr|lakh|crore/i.test(raw);
-    const isPercent = /%|percent/i.test(raw);
+    // In a range ("20–25%", "20 to 25 percent") the first number is a percentage too.
+    const rangeOfPercent = /^\s?(?:–|—|-|to)\s?\d+(?:\.\d+)?\s?(?:%|percent)/i.test(text.slice(start + m[0].length));
+    if (rangeOfPercent && !value.endsWith("%")) value += "%";
+    const isPercent = /%|percent/i.test(raw) || rangeOfPercent;
     const n = Number(value.replace(/[^\d.]/g, ""));
     // Small counting numbers ("3 ways", "Post 2") are not claims.
     const small = !isMoney && !isPercent && !value.includes("x7") && n <= 10 && !value.includes(".");

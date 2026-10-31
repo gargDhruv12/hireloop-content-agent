@@ -52,3 +52,10 @@ test("percent and ratings in different forms match", () => {
 test("a unit-less number can still trace to a duration fact", () => {
   assert.deepEqual(untraced("From 12 to 48: that's the change.", "Down to 48 hours from 12 days."), []);
 });
+
+test("both ends of a percentage range are percentages", () => {
+  // Found by the eval baseline (#18): "20–25%" was read as 20 and 25%, so "20%" didn't trace.
+  assert.deepEqual(untraced("Agencies charge 20% or more.", "Agencies charge a 20–25% finder's fee."), []);
+  assert.deepEqual(untraced("Fees of 20 to 25 percent.", "Agencies charge a 20–25% finder's fee."), []);
+  assert.deepEqual(untraced("Fees of 30%.", "Agencies charge a 20–25% finder's fee."), ["30%"]);
+});
