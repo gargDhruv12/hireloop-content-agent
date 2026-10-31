@@ -14,7 +14,8 @@ let store: RunStore | null = null;
 function getStore(): RunStore {
   if (store) return store;
   const url = process.env.DATABASE_URL;
-  store = url ? createSqlStore(postgresClient(url)) : createFileStore();
+  // DATA_DIR moves the file store (the browser tests use a throwaway folder).
+  store = url ? createSqlStore(postgresClient(url)) : createFileStore(process.env.DATA_DIR || undefined);
   if (!url && process.env.VERCEL) {
     console.warn("[store] Running on Vercel without DATABASE_URL: runs are saved to temporary disk and will be lost.");
   }

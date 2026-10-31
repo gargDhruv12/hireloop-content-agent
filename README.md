@@ -177,9 +177,10 @@ npm run eval           # runs every case in evals/cases.json against Gemini, wri
 npm run eval:checker   # plants 4 known problems and counts how many the checker catches
 npm run typecheck
 npm run lint           # ESLint with Next's core-web-vitals and TypeScript rules
+npm run build && npm run e2e   # browser tests of the review desk (Playwright), offline, desktop + phone
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`) runs lint, typecheck, tests, both offline smoke tests and a production build on every push and pull request. None of them need an API key.
+GitHub Actions (`.github/workflows/ci.yml`) runs lint, typecheck, tests, both offline smoke tests, a production build and the browser tests on every push and pull request. None of them need an API key.
 
 **Before merging any prompt, model or checker change, re-run the evals and compare with [`evals/BASELINE.md`](evals/BASELINE.md)** (live results from 31 October 2026, with what each column should look like).
 

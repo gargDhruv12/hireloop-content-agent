@@ -9,3 +9,6 @@ next-env.d.ts
 evals/results/*
 !evals/results/.gitkeep
 .DS_Store
+.data-e2e
+test-results
+playwright-report

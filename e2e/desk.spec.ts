@@ -1,0 +1,73 @@
+import { expect, test, type Page } from "@playwright/test";
+
+const TOPIC = "Slow first-round interviews are costing BPOs their best applicants";
+
+/** Make a pack from the home page form, the way a person would, and land on its review page. */
+async function newPack(page: Page) {
+  await page.goto("/");
+  await page.getByLabel("Topic").fill(TOPIC);
+  await page.getByRole("button", { name: "Write the content pack" }).click();
+  await page.waitForURL(/\/runs\/[a-z0-9-]+/);
+  await expect(page.getByRole("tablist", { name: "Pieces" })).toBeVisible();
+}
+
+test("a pack made from the home page opens on its research", async ({ page }) => {
+  await newPack(page);
+  await expect(page.getByRole("heading", { level: 1, name: "Research and plan" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: /^Research and plan/ })).toHaveAttribute("aria-selected", "true");
+});
+
+test("tabs switch pieces by click and by arrow key, and the URL follows", async ({ page }) => {
+  await newPack(page);
+  await page.getByRole("tab", { name: /^Blog post/ }).click();
+  await expect(page).toHaveURL(/view=blog/);
+  await expect(page.getByRole("heading", { level: 1, name: "Blog post" })).toBeVisible();
+
+  await page.getByRole("tab", { name: /^Blog post/ }).press("ArrowRight");
+  await expect(page).toHaveURL(/view=linkedin/);
+  await expect(page.getByRole("tab", { name: /^LinkedIn post/ })).toBeFocused();
+
+  // Meta and Google ads both show as "Ad 1"; their full names tell them apart.
+  await page.getByRole("tab", { name: /^Google ad 3/ }).click();
+  await expect(page).toHaveURL(/view=google-3/);
+});
+
+test("approving a piece moves the counter and marks the tab", async ({ page }) => {
+  await newPack(page);
+  await expect(page.getByText("0 of 11", { exact: true })).toBeVisible();
+  await page.getByRole("tab", { name: /^Blog post/ }).click();
+  await page.getByRole("button", { name: "Approve", exact: true }).click();
+  await expect(page.getByText("1 of 11", { exact: true })).toBeVisible();
+  await expect(page.getByRole("tab", { name: /^Blog post, approved/ })).toBeVisible();
+});
+
+test("an edit is re-checked as you type", async ({ page }) => {
+  await newPack(page);
+  await page.getByRole("tab", { name: /^LinkedIn post/ }).click();
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  const body = page.locator(".editor textarea").first();
+  await body.fill("Our AI rejects weak candidates so you never have to. Try a 10-minute sample AI interview.");
+  // The brand rule "the AI only recommends" fires before anything is saved.
+  await expect(page.locator(".margin")).toContainText("breaks a brand rule");
+  await page.getByRole("button", { name: "Discard edits" }).click();
+  await expect(page.locator(".margin")).not.toContainText("breaks a brand rule");
+});
+
+test("the approved pieces download as a zip", async ({ page }) => {
+  await newPack(page);
+  await page.getByRole("tab", { name: /^Blog post/ }).click();
+  await page.getByRole("button", { name: "Approve", exact: true }).click();
+  await expect(page.getByText("1 of 11", { exact: true })).toBeVisible();
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download approved" }).click();
+  expect((await download).suggestedFilename()).toMatch(/approved-\d{12}\.zip$/);
+});
+
+test("no page scrolls sideways", async ({ page }) => {
+  await newPack(page);
+  for (const path of ["/", page.url()]) {
+    await page.goto(path);
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow, `sideways overflow on ${path}`).toBeLessThanOrEqual(0);
+  }
+});

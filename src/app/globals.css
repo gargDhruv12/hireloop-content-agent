@@ -1993,6 +1993,8 @@ a {
     "stage margin";
   gap: 20px 24px;
   align-items: start;
+  /* Entrance slides (the notes panel comes in from the right) must never make a phone scroll sideways. */
+  overflow-x: clip;
 }
 
 /* The pack bar: progress, downloads and every piece as a tab */

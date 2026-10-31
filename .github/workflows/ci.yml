@@ -26,3 +26,12 @@ jobs:
       - run: npm run build
         env:
           MOCK_AI: "1"
+      # Browser tests of the review desk against the build, offline (desktop and phone).
+      - run: npx playwright install --with-deps chromium
+      - run: npm run e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-traces
+          path: test-results/
+          retention-days: 7
