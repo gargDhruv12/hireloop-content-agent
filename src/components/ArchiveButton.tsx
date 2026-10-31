@@ -2,9 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { buttonClass } from "./ui/primitives";
 
 /** Archive or restore a pack. Archiving only hides it; nothing is deleted. */
-export function ArchiveButton({ id, archived, className = "btn btn--glass" }: { id: string; archived: boolean; className?: string }) {
+export function ArchiveButton({ id, archived, className = buttonClass("soft") }: { id: string; archived: boolean; className?: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +29,7 @@ export function ArchiveButton({ id, archived, className = "btn btn--glass" }: { 
         {busy ? "Saving…" : archived ? "Restore" : "Archive"}
       </button>
       {error && (
-        <span role="alert" className="packs__error">
+        <span role="alert" className="text-xs font-semibold text-bad">
           {error}
         </span>
       )}

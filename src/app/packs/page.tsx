@@ -1,5 +1,7 @@
 import { PacksList, type PackRow } from "@/components/PacksList";
 import { TopBar } from "@/components/TopBar";
+import { InboxIcon } from "@/components/ui/icons";
+import { Card, PageBand, cn, wrap } from "@/components/ui/primitives";
 import { isMock } from "@/lib/ai/models";
 import { formatInr, runCost } from "@/lib/ai/pricing";
 import { PIECE_ORDER } from "@/lib/content/pieces";
@@ -29,13 +31,16 @@ export default async function PacksPage() {
 
   return (
     <>
-      <TopBar mock={isMock()} notice={storageNotice()} />
-      <main className="page">
-        <div className="page__head">
-          <h1>All packs</h1>
-          <p>Every pack, newest first. Archived packs are hidden until you filter for them.</p>
+      <TopBar current="packs" mock={isMock()} notice={storageNotice()} />
+      <main id="main">
+        <PageBand eyebrow="● Library" title="All packs">
+          <p className="m-0">Every pack, newest first. Archived packs are hidden until you filter for them.</p>
+        </PageBand>
+        <div className={cn(wrap, "py-8")}>
+          <Card title="Packs" description="Search by topic, filter by review state, archive what's done." icon={<InboxIcon />}>
+            <PacksList rows={rows} />
+          </Card>
         </div>
-        <PacksList rows={rows} />
       </main>
     </>
   );

@@ -2,6 +2,8 @@ import Link from "next/link";
 import { clients } from "@/clients";
 import { BriefForm } from "@/components/BriefForm";
 import { TopBar } from "@/components/TopBar";
+import { ChartIcon, ClockIcon } from "@/components/ui/icons";
+import { Badge, Card, PageBand, cn, wrap } from "@/components/ui/primitives";
 import { isMock } from "@/lib/ai/models";
 import { formatInr, runCost } from "@/lib/ai/pricing";
 import { PIECE_ORDER } from "@/lib/content/pieces";
@@ -28,74 +30,81 @@ export default async function Home() {
 
   return (
     <>
-      <TopBar mock={isMock()} notice={storageNotice()} />
-      <div className="start">
-        <div>
-          <h1 className="start__lead">What should HireLoop talk about this week?</h1>
-          <p className="start__sub">
-            Give the agent a topic or a news link. It researches, drafts a blog post, a LinkedIn post, an X thread, an Instagram
-            caption, 3 Meta ads, 3 Google ads and an image, checks every claim against the client&apos;s facts, and hands it all to you
-            for review.
+      <TopBar current="new" mock={isMock()} notice={storageNotice()} />
+      <main id="main">
+        <PageBand eyebrow="● Research → Plan → Write → Check → Revise → Image → Human review" title="What should HireLoop talk about this week?">
+          <p className="m-0 max-w-[66ch]">
+            Give the agent a topic or a news link. It researches, drafts a blog post, a LinkedIn post, an X thread, an Instagram caption, 3
+            Meta ads, 3 Google ads and an image, checks every claim against the client&apos;s facts, and hands it all to you for review.
           </p>
-          <BriefForm clients={clients().map(({ id, name, audiences }) => ({ id, name, audiences }))} />
+        </PageBand>
+
+        <div className={cn(wrap, "py-8")}>
+          <BriefForm clients={clients().map(({ id, name, audiences }) => ({ id, name, audiences }))}>
+            <Card
+              id="recent"
+              title="Recent packs"
+              description="Open a pack to review, edit and approve it."
+              icon={<ClockIcon />}
+              bodyClassName="p-0 sm:p-0"
+              actions={
+                all.length > 0 && (
+                  <Link href="/packs" className="text-sm font-bold text-brand-text no-underline hover:underline">
+                    View all ({all.length})
+                  </Link>
+                )
+              }
+            >
+              {recent.length === 0 ? (
+                <p className="m-0 px-5 py-8 text-center text-sm text-muted">Your packs will show up here after the first run.</p>
+              ) : (
+                <ul className="m-0 list-none divide-y divide-line p-0">
+                  {recent.map((r) => {
+                    const done = approvedIn(r);
+                    const blocking = r.findings.filter((f) => f.severity === "block").length;
+                    return (
+                      <li key={r.id}>
+                        <Link
+                          href={`/runs/${r.id}`}
+                          className="group flex items-center gap-4 px-4 py-3 text-ink no-underline transition-colors hover:bg-tint sm:px-5"
+                        >
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-bold group-hover:text-brand-text">{r.input.topic}</span>
+                            <span className="mt-0.5 block text-xs text-muted">
+                              {new Date(r.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} · {done} of {TO_APPROVE}{" "}
+                              approved
+                              {blocking ? ` · ${blocking} blocking` : ""}
+                            </span>
+                          </span>
+                          <span className="hidden h-1.5 w-24 shrink-0 overflow-hidden rounded-full bg-lilac sm:block" aria-hidden>
+                            <span className="block h-full rounded-full bg-ok" style={{ width: `${(done / TO_APPROVE) * 100}%` }} />
+                          </span>
+                          {done === TO_APPROVE ? <Badge tone="success">Approved</Badge> : blocking > 0 ? <Badge tone="danger">Blocking</Badge> : <Badge tone="warning">In review</Badge>}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </Card>
+
+            <Card title="This desk" description="Across every pack, including archived ones." icon={<ChartIcon />}>
+              <dl className="m-0 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+                {summary.map((s) => (
+                  <div key={s.label} className="rounded-xl border border-line bg-panel px-3.5 py-3">
+                    <dt className="text-xs font-semibold text-muted">{s.label}</dt>
+                    <dd className="m-0 mt-1 text-xl font-extrabold text-ink tabular-nums">{s.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </Card>
+          </BriefForm>
         </div>
+      </main>
 
-        <aside className="start__aside">
-          <section className="panel recent" id="recent" aria-labelledby="recent-title">
-            <div className="panel__head">
-              <h2 id="recent-title">Recent packs</h2>
-              {all.length > 0 && <Link href="/packs">View all ({all.length})</Link>}
-            </div>
-            {recent.length === 0 ? (
-              <p className="recent__empty">Your packs will show up here after the first run.</p>
-            ) : (
-              <ul>
-                {recent.map((r) => {
-                  const done = approvedIn(r);
-                  const blocking = r.findings.filter((f) => f.severity === "block").length;
-                  return (
-                    <li key={r.id}>
-                      <Link href={`/runs/${r.id}`}>
-                        <span className="recent__topic">{r.input.topic}</span>
-                        <span className="recent__meta">
-                          {new Date(r.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} · {done} of {TO_APPROVE}{" "}
-                          approved
-                          {blocking ? ` · ${blocking} blocking` : ""}
-                        </span>
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </section>
-
-          <section className="panel" aria-labelledby="desk-title">
-            <h2 id="desk-title">This desk</h2>
-            <dl className="kv">
-              {summary.map((s) => (
-                <div key={s.label}>
-                  <dt>{s.label}</dt>
-                  <dd>{s.value}</dd>
-                </div>
-              ))}
-            </dl>
-          </section>
-
-          <section className="panel how" aria-labelledby="how-title">
-            <h2 id="how-title">How a pack is made</h2>
-            <ol>
-              <li>Research: facts from the link (or a web search) and the client site, each with an id</li>
-              <li>Plan: one audience, one angle</li>
-              <li>Write: every channel</li>
-              <li>Check: code rules and a separate AI reviewer</li>
-              <li>Revise: automatic fixes for anything blocking</li>
-              <li>Image: brief, then picture</li>
-              <li>You review, edit and approve</li>
-            </ol>
-          </section>
-        </aside>
-      </div>
+      <footer className={cn(wrap, "border-t border-line py-6 text-[13px] text-muted")}>
+        Content Studio for HireLoop · Drafts only: nothing is published, sent or scheduled without a person.
+      </footer>
     </>
   );
 }

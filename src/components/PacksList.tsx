@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ArchiveButton } from "./ArchiveButton";
+import { Badge, buttonClass, cn } from "./ui/primitives";
 
 export interface PackRow {
   id: string;
@@ -35,47 +36,69 @@ export function PacksList({ rows }: { rows: PackRow[] }) {
   }, [rows, query, filter]);
 
   return (
-    <div className="packs panel">
-      <div className="packs__tools">
-        <label className="visually-hidden" htmlFor="pack-search">
+    <div className="grid gap-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="sr-only" htmlFor="pack-search">
           Search packs by topic
         </label>
         <input
           id="pack-search"
-          className="input packs__search"
+          className="block w-full max-w-sm rounded-[10px] border border-line bg-bg px-3.5 py-2.5 text-sm text-ink placeholder:text-muted focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand-2/30"
           type="search"
           placeholder="Search by topic…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
-        <div className="packs__filters" role="group" aria-label="Filter packs">
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter packs">
           {FILTERS.map((f) => (
-            <button key={f.id} type="button" className="packs__chip" aria-pressed={filter === f.id} onClick={() => setFilter(f.id)}>
-              {f.label} <span>{rows.filter(f.test).length}</span>
+            <button
+              key={f.id}
+              type="button"
+              aria-pressed={filter === f.id}
+              onClick={() => setFilter(f.id)}
+              className={cn(
+                "inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold transition-colors",
+                filter === f.id ? "border-brand bg-brand text-on-brand" : "border-line bg-bg text-muted hover:border-brand-2/60 hover:text-ink",
+              )}
+            >
+              {f.label} <span className="tabular-nums">{rows.filter(f.test).length}</span>
             </button>
           ))}
         </div>
       </div>
 
       {shown.length === 0 ? (
-        <p className="packs__empty">{rows.length === 0 ? "No packs yet. Start one from the home page." : "No packs match."}</p>
+        <p className="m-0 rounded-xl border border-dashed border-line bg-panel px-4 py-10 text-center text-sm text-muted">
+          {rows.length === 0 ? "No packs yet. Start one from the home page." : "No packs match."}
+        </p>
       ) : (
-        <ul className="packs__list">
-          {shown.map((r, i) => (
-            <li key={r.id} className="packrow" style={{ "--i": Math.min(i, 12) } as React.CSSProperties}>
-              <Link href={`/runs/${r.id}`} className="packrow__main">
-                <span className="packrow__topic">{r.topic}</span>
-                <span className="packrow__meta">
-                  {new Date(r.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })} · {r.approved} of{" "}
-                  {r.total} approved
-                  {r.blocking ? ` · ${r.blocking} blocking` : ""}
-                  {r.cost ? ` · ${r.cost}` : ""}
+        <ul className="m-0 list-none divide-y divide-line overflow-hidden rounded-xl border border-line p-0">
+          {shown.map((r) => (
+            <li key={r.id} className="packrow flex items-center gap-3 bg-bg pr-3 transition-colors hover:bg-tint">
+              <Link href={`/runs/${r.id}`} className="flex min-w-0 flex-1 items-center gap-4 px-4 py-3 text-ink no-underline">
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-bold">{r.topic}</span>
+                  <span className="mt-0.5 block text-xs text-muted">
+                    {new Date(r.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })} · {r.approved} of{" "}
+                    {r.total} approved
+                    {r.blocking ? ` · ${r.blocking} blocking` : ""}
+                    {r.cost ? ` · ${r.cost}` : ""}
+                  </span>
                 </span>
-                <span className="packrow__bar" aria-hidden>
-                  <span style={{ width: `${(r.approved / r.total) * 100}%` }} />
+                <span className="hidden h-1.5 w-28 shrink-0 overflow-hidden rounded-full bg-lilac sm:block" aria-hidden>
+                  <span className="block h-full rounded-full bg-ok" style={{ width: `${(r.approved / r.total) * 100}%` }} />
                 </span>
+                {r.archived ? (
+                  <Badge>Archived</Badge>
+                ) : r.approved === r.total ? (
+                  <Badge tone="success">Approved</Badge>
+                ) : r.blocking > 0 ? (
+                  <Badge tone="danger">Blocking</Badge>
+                ) : (
+                  <Badge tone="warning">In review</Badge>
+                )}
               </Link>
-              <ArchiveButton id={r.id} archived={r.archived} className="btn btn--quiet" />
+              <ArchiveButton id={r.id} archived={r.archived} className={buttonClass("ghost", "sm")} />
             </li>
           ))}
         </ul>

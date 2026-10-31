@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { MoonIcon, SunIcon } from "./ui/icons";
 
 type Theme = "light" | "dark";
 
@@ -40,12 +41,12 @@ export function ThemeToggle() {
   return (
     <button
       type="button"
-      className="btn btn--glass theme-toggle"
+      className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-[10px] border border-line bg-bg text-[15px] text-ink hover:bg-tint"
       onClick={toggle}
       aria-label={theme ? `Switch to ${next} mode` : "Switch colour theme"}
       title={theme ? `Switch to ${next} mode` : undefined}
     >
-      <span aria-hidden>{theme === "dark" ? "☀" : theme === "light" ? "☾" : ""}</span>
+      {theme === "dark" ? <SunIcon /> : theme === "light" ? <MoonIcon /> : null}
     </button>
   );
 }

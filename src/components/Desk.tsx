@@ -6,7 +6,7 @@ import type { ContentPack, ImageBrief } from "@/lib/content/schemas";
 import type { Finding, PieceId, ReviewLogEntry, ReviewStatus, Run, SendLogEntry } from "@/lib/content/types";
 import { getPieces, setField, withPiece } from "@/lib/content/pieces";
 import { refreshAfterEdit } from "@/lib/content/findings";
-import type { Cost } from "@/lib/ai/pricing";
+import { formatInr, type Cost } from "@/lib/ai/pricing";
 import { SENDABLE } from "@/lib/scheduler-pieces";
 import { Changes } from "./Changes";
 import { Proof } from "./Proof";
@@ -15,6 +15,8 @@ import { Editor } from "./Editor";
 import { ResearchView } from "./ResearchView";
 import { ImageView } from "./ImageView";
 import type { Mark } from "./Marked";
+import { ArchiveButton } from "./ArchiveButton";
+import { Badge, PageBand, cn, wrap } from "./ui/primitives";
 
 export type View = PieceId | "research" | "image";
 
@@ -260,276 +262,302 @@ export function Desk({
   };
 
   const total = pieces.length + 1;
+  // Ads show as "Ad 1" under a "Meta" or "Google" label; their spoken names say which.
+  const tab = (p: (typeof pieces)[number], label = p.label): Tab => ({ id: p.id, label, name: p.label, status: run.review[p.id], counts: counts(p.id) });
+  const ads = (prefix: string) => pieces.filter((p) => p.id.startsWith(prefix)).map((p) => tab(p, p.label.replace(/^\w+ ad/, "Ad")));
   const groups: TabGroup[] = [
     { label: "Overview", tabs: [{ id: "research", label: "Research & plan", name: "Research & plan" }] },
-    {
-      label: "Drafts",
-      tabs: pieces.map((p) => ({ id: p.id as View, label: p.label, name: p.label, status: run.review[p.id], counts: counts(p.id) })),
-    },
+    { label: "Drafts", tabs: pieces.filter((p) => !/^(meta|google)-/.test(p.id)).map((p) => tab(p)) },
+    { label: "Meta", tabs: ads("meta-"), showLabel: true },
+    { label: "Google", tabs: ads("google-"), showLabel: true },
     { label: "Visual", tabs: [{ id: "image", label: "Image", name: "Image", status: run.review.image }] },
   ];
 
+  const meta = [
+    new Date(run.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }),
+    run.input.audience,
+    cost ? `${formatInr(cost.inr)} to make` : null,
+  ].filter(Boolean);
+
   return (
     <>
-      <div className="desk">
-        <Rail
-          groups={groups}
-          view={view}
-          onGo={go}
-          approved={approvedCount}
-          total={total}
-          actions={
-            <>
-              <button
-                className="btn btn--primary"
-                disabled={approvedCount === 0 || busy === "download"}
-                title={approvedCount === 0 ? "Approve at least one piece first" : "Approved pieces as Markdown, plus the image if it's approved (.zip)"}
-                onClick={downloadApproved}
-              >
-                {busy === "download" ? "Preparing…" : "Download approved"}
-              </button>
-              {run.image && (
-                <a className="btn btn--quiet" href={`/api/runs/${run.id}/image?download=1&v=${run.image.file}`} download={run.image.file}>
-                  Download image
-                </a>
-              )}
-              <button
-                className="btn btn--quiet"
-                onClick={() => download(`${run.id}.json`, new Blob([JSON.stringify(run, null, 2)], { type: "application/json" }))}
-              >
-                Download full run (JSON)
-              </button>
-            </>
-          }
-        />
+      <PageBand
+        eyebrow={<>● Content pack · {client.name.replace(/ \(sample\)$/, "")}</>}
+        title={run.input.topic}
+        titleAs="p"
+        actions={
+          <>
+            <button
+              className="btn btn--primary"
+              disabled={approvedCount === 0 || busy === "download"}
+              title={approvedCount === 0 ? "Approve at least one piece first" : "Approved pieces as Markdown, plus the image if it's approved (.zip)"}
+              onClick={downloadApproved}
+            >
+              {busy === "download" ? "Preparing…" : "Download approved"}
+            </button>
+            {run.image && (
+              <a className="btn" href={`/api/runs/${run.id}/image?download=1&v=${run.image.file}`} download={run.image.file}>
+                Download image
+              </a>
+            )}
+            <button className="btn" onClick={() => download(`${run.id}.json`, new Blob([JSON.stringify(run, null, 2)], { type: "application/json" }))}>
+              Full run (JSON)
+            </button>
+            {!run.archived && <ArchiveButton id={run.id} archived={false} className="btn btn--quiet" />}
+          </>
+        }
+      >
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+          <span className="text-muted">{meta.join(" · ")}</span>
+          <span className="inline-flex items-center gap-2.5">
+            <span className="text-ink">
+              <b>
+                {approvedCount} of {total}
+              </b>{" "}
+              approved
+            </span>
+            <span
+              className="h-1.5 w-32 overflow-hidden rounded-full bg-lilac"
+              role="progressbar"
+              aria-label="Pieces approved"
+              aria-valuemin={0}
+              aria-valuemax={total}
+              aria-valuenow={approvedCount}
+            >
+              <span className="block h-full rounded-full bg-ok transition-[width] duration-300" style={{ width: `${(approvedCount / total) * 100}%` }} />
+            </span>
+          </span>
+        </div>
+      </PageBand>
 
-        <main className="stage">
-          {error && (
-            <p className="error" role="alert" style={{ display: "flex", gap: 12, alignItems: "baseline", marginTop: 0 }}>
-              <span style={{ flex: 1 }}>{error}</span>
-              <button className="btn btn--quiet" onClick={() => setError(null)}>
-                Dismiss
-              </button>
-            </p>
-          )}
+      <div className={cn(wrap, "py-6")}>
+        <section aria-label="Content pack" className="rounded-[14px] border border-line bg-bg shadow-card">
+          <PieceTabs groups={groups} view={view} onGo={go} />
 
-          {view === "research" && (
-            <>
-              <div className="stage__head">
-                <h1 className="stage__title">Research and plan</h1>
-                <span className="stage__sub">Check this before the drafts: everything below is built on it.</span>
-              </div>
-              <ResearchView run={run} cost={cost} />
-            </>
-          )}
-
-          {view === "image" && (
-            <>
-              <div className="stage__head">
-                <h1 className="stage__title">Image</h1>
-                <StatusLabel status={run.review.image} entry={lastDecision(run, "image")} />
-              </div>
-              <ImageView
-                key={JSON.stringify(pack.imageBrief)}
-                brief={pack.imageBrief}
-                imageUrl={imageUrl}
-                prompt={run.image?.prompt}
-                error={run.imageError}
-                busy={busy === "image"}
-                onRegenerate={regenerateImage}
-              />
-              <div className="decision">
-                <button
-                  className="btn btn--approve"
-                  disabled={!run.image || run.review.image === "approved" || busy === "decide"}
-                  onClick={() => decide("approved")}
-                >
-                  {run.review.image === "approved" ? "Approved" : "Approve image"}
-                </button>
-                <button className="btn" disabled={busy === "decide"} onClick={() => decide("changes")}>
-                  Needs changes
-                </button>
-              </div>
-            </>
-          )}
-
-          {piece && (
-            <>
-              <div className="stage__head">
-                <h1 className="stage__title">{piece.label}</h1>
-                <StatusLabel status={run.review[piece.id]} entry={lastDecision(run, piece.id)} />
-              </div>
-
-              {!editing && before?.view === piece.id && (
-                <div className="sheet">
-                  <Changes
-                    title="What the rewrite changed"
-                    before={getPieces(before.pack).find((p) => p.id === piece.id)?.fields ?? []}
-                    after={piece.fields}
-                    actions={
-                      <>
-                        <button className="btn btn--primary" onClick={() => setBefore(null)}>
-                          Keep the rewrite
-                        </button>
-                        <button className="btn btn--glass" disabled={busy === "save"} onClick={undoRewrite}>
-                          {busy === "save" ? "Going back…" : "Go back to the previous version"}
-                        </button>
-                      </>
-                    }
-                  />
-                </div>
-              )}
-
-              {!editing && before?.view !== piece.id && firstDraftPiece && (
-                <div className="sheet">
-                  <button className="btn btn--quiet changes__toggle" aria-expanded={showFirstDraft} onClick={() => setShowFirstDraft((s) => !s)}>
-                    {showFirstDraft ? "Hide the first draft" : "The agent fixed this piece itself. Compare with the first draft"}
+          <div className="grid grid-cols-1 gap-6 p-4 sm:p-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
+            <div className="stage min-w-0">
+              {error && (
+                <div role="alert" className="mb-4 flex items-start gap-3 rounded-xl border border-bad/30 bg-bad-soft px-4 py-3 text-sm text-bad">
+                  <span className="flex-1 font-semibold">{error}</span>
+                  <button className="btn btn--quiet" onClick={() => setError(null)}>
+                    Dismiss
                   </button>
-                  {showFirstDraft && <Changes title="What self-revision changed" before={firstDraftPiece.fields} after={piece.fields} />}
                 </div>
               )}
 
-              <div className="sheet">
-                {editing ? (
-                  <Editor piece={piece} onChange={edit} />
-                ) : (
-                  <Proof
-                    brand={{ ...client.brand, name: client.name.replace(/ \(sample\)$/, "") }}
-                    piece={piece}
-                    pack={pack}
-                    marks={marks}
-                    imageUrl={imageUrl}
-                    imageAlt={pack.imageBrief.altText}
-                    activeId={active}
-                    onSelect={setActive}
-                  />
-                )}
-              </div>
+              {view === "research" && (
+                <>
+                  <StageHead title="Research and plan">
+                    <span className="text-sm text-muted">Check this before the drafts: everything below is built on it.</span>
+                  </StageHead>
+                  <ResearchView run={run} cost={cost} />
+                </>
+              )}
 
-              <div className="decision">
-                {editing ? (
-                  <>
-                    <button className="btn btn--primary" disabled={!dirty || busy === "save"} onClick={saveEdits}>
-                      {busy === "save" ? "Saving…" : "Save edits"}
+              {view === "image" && (
+                <>
+                  <StageHead title="Image">
+                    <StatusLabel status={run.review.image} entry={lastDecision(run, "image")} />
+                  </StageHead>
+                  <ImageView
+                    key={JSON.stringify(pack.imageBrief)}
+                    brief={pack.imageBrief}
+                    imageUrl={imageUrl}
+                    prompt={run.image?.prompt}
+                    error={run.imageError}
+                    busy={busy === "image"}
+                    onRegenerate={regenerateImage}
+                  />
+                  <ReviewBar label="Image">
+                    <button className="btn" disabled={busy === "decide"} onClick={() => decide("changes")}>
+                      Needs changes
                     </button>
-                    <button
-                      className="btn btn--quiet"
-                      onClick={() => {
-                        setPack(run.pack);
-                        setFindings(run.findings);
-                        setDirty(false);
-                        setEditing(false);
-                      }}
-                    >
-                      Discard edits
-                    </button>
-                  </>
-                ) : (
-                  <>
                     <button
                       className="btn btn--approve"
-                      disabled={blocking > 0 || run.review[piece.id] === "approved" || busy === "decide"}
+                      disabled={!run.image || run.review.image === "approved" || busy === "decide"}
                       onClick={() => decide("approved")}
                     >
-                      {run.review[piece.id] === "approved" ? "Approved" : "Approve"}
+                      {run.review.image === "approved" ? "Approved" : "Approve image"}
                     </button>
-                    <button className="btn" onClick={() => setEditing(true)}>
-                      Edit
-                    </button>
-                    <button className="btn" onClick={() => setShowRewrite((s) => !s)} aria-expanded={showRewrite}>
-                      Ask the agent to rewrite
-                    </button>
-                    {scheduler && SENDABLE.includes(piece.id) && run.review[piece.id] === "approved" && (
-                      <button className="btn btn--glass" disabled={busy === "send"} onClick={sendToScheduler}>
-                        {busy === "send" ? "Sending…" : `Send to ${scheduler} as a draft`}
-                      </button>
-                    )}
-                    <span className="decision__spacer" />
-                    {run.review[piece.id] !== "changes" && (
-                      <button className="btn btn--quiet" onClick={() => decide("changes")}>
-                        Needs changes
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
-
-              {!editing && lastSend(run, piece.id) && (
-                <SendStatus entry={lastSend(run, piece.id)!} />
+                  </ReviewBar>
+                </>
               )}
 
-              {!editing && blocking > 0 && (
-                <div className="decision" style={{ marginTop: 8 }}>
-                  <span className="decision__hint">
-                    {blocking === 1 ? "1 blocking problem" : `${blocking} blocking problems`} to fix before approving.
-                  </span>
-                  <button
-                    className="btn btn--quiet"
-                    onClick={() => {
-                      if (confirm("Approve with blocking problems? Only do this if you've checked the notes and they're wrong.")) decide("approved");
-                    }}
-                  >
-                    Override and approve
-                  </button>
-                </div>
-              )}
+              {piece && (
+                <>
+                  <StageHead title={piece.label}>
+                    <StatusLabel status={run.review[piece.id]} entry={lastDecision(run, piece.id)} />
+                  </StageHead>
 
-              {showRewrite && !editing && (
-                <div className="rewrite">
-                  <label className="field__label" htmlFor="rewrite-note">
-                    What should change? <span className="field__hint">The agent also fixes every note in the margin.</span>
-                  </label>
-                  <textarea
-                    id="rewrite-note"
-                    className="textarea"
-                    rows={2}
-                    value={note}
-                    placeholder="e.g. Lead with the 11 PM interview, and make it warmer"
-                    onChange={(e) => setNote(e.target.value)}
-                  />
-                  <div>
-                    <button className="btn btn--primary" disabled={busy === "rewrite"} onClick={rewrite}>
-                      {busy === "rewrite" ? "Rewriting…" : "Rewrite this piece"}
-                    </button>
+                  {!editing && before?.view === piece.id && (
+                    <div className="sheet">
+                      <Changes
+                        title="What the rewrite changed"
+                        before={getPieces(before.pack).find((p) => p.id === piece.id)?.fields ?? []}
+                        after={piece.fields}
+                        actions={
+                          <>
+                            <button className="btn btn--primary" onClick={() => setBefore(null)}>
+                              Keep the rewrite
+                            </button>
+                            <button className="btn btn--glass" disabled={busy === "save"} onClick={undoRewrite}>
+                              {busy === "save" ? "Going back…" : "Go back to the previous version"}
+                            </button>
+                          </>
+                        }
+                      />
+                    </div>
+                  )}
+
+                  {!editing && before?.view !== piece.id && firstDraftPiece && (
+                    <div className="sheet">
+                      <button className="btn btn--quiet changes__toggle" aria-expanded={showFirstDraft} onClick={() => setShowFirstDraft((s) => !s)}>
+                        {showFirstDraft ? "Hide the first draft" : "The agent fixed this piece itself. Compare with the first draft"}
+                      </button>
+                      {showFirstDraft && <Changes title="What self-revision changed" before={firstDraftPiece.fields} after={piece.fields} />}
+                    </div>
+                  )}
+
+                  <div className="sheet">
+                    {editing ? (
+                      <Editor piece={piece} onChange={edit} />
+                    ) : (
+                      <Proof
+                        brand={{ ...client.brand, name: client.name.replace(/ \(sample\)$/, "") }}
+                        piece={piece}
+                        pack={pack}
+                        marks={marks}
+                        imageUrl={imageUrl}
+                        imageAlt={pack.imageBrief.altText}
+                        activeId={active}
+                        onSelect={setActive}
+                      />
+                    )}
                   </div>
-                </div>
-              )}
-            </>
-          )}
-        </main>
 
-        {piece ? (
-          <Margin
-            key={`margin-${view}`}
-            findings={pieceFindings}
-            factIds={piece.factIds}
-            facts={run.research.facts}
-            activeId={active}
-            onSelect={setActive}
-          />
-        ) : (
-          <aside className="margin" aria-label="About this run" tabIndex={0} key={`margin-${view}`}>
-            <section>
-              <h3>Brief</h3>
-              <p style={{ fontFamily: "var(--serif)", fontSize: 17, margin: 0 }}>{run.input.topic}</p>
-              {run.input.sourceUrl && (
-                <p style={{ fontSize: 13, overflowWrap: "anywhere" }}>
-                  <a href={run.input.sourceUrl} target="_blank" rel="noreferrer">
-                    {run.input.sourceUrl}
-                  </a>
-                </p>
+                  <ReviewBar label={piece.label}>
+                    {editing ? (
+                      <>
+                        <button
+                          className="btn btn--quiet"
+                          onClick={() => {
+                            setPack(run.pack);
+                            setFindings(run.findings);
+                            setDirty(false);
+                            setEditing(false);
+                          }}
+                        >
+                          Discard edits
+                        </button>
+                        <button className="btn btn--primary" disabled={!dirty || busy === "save"} onClick={saveEdits}>
+                          {busy === "save" ? "Saving…" : "Save edits"}
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        {run.review[piece.id] !== "changes" && (
+                          <button className="btn btn--quiet" onClick={() => decide("changes")}>
+                            Needs changes
+                          </button>
+                        )}
+                        <button className="btn" onClick={() => setShowRewrite((s) => !s)} aria-expanded={showRewrite}>
+                          Ask the agent to rewrite
+                        </button>
+                        <button className="btn" onClick={() => setEditing(true)}>
+                          Edit
+                        </button>
+                        {scheduler && SENDABLE.includes(piece.id) && run.review[piece.id] === "approved" && (
+                          <button className="btn btn--glass" disabled={busy === "send"} onClick={sendToScheduler}>
+                            {busy === "send" ? "Sending…" : `Send to ${scheduler} as a draft`}
+                          </button>
+                        )}
+                        <button
+                          className="btn btn--approve"
+                          disabled={blocking > 0 || run.review[piece.id] === "approved" || busy === "decide"}
+                          onClick={() => decide("approved")}
+                        >
+                          {run.review[piece.id] === "approved" ? "Approved" : "Approve"}
+                        </button>
+                      </>
+                    )}
+                  </ReviewBar>
+
+                  {!editing && lastSend(run, piece.id) && <SendStatus entry={lastSend(run, piece.id)!} />}
+
+                  {!editing && blocking > 0 && (
+                    <div className="sheet mt-2 flex flex-wrap items-center justify-end gap-2">
+                      <span className="text-[13px] font-semibold text-bad">
+                        {blocking === 1 ? "1 blocking problem" : `${blocking} blocking problems`} to fix before approving.
+                      </span>
+                      <button
+                        className="btn btn--quiet"
+                        onClick={() => {
+                          if (confirm("Approve with blocking problems? Only do this if you've checked the notes and they're wrong.")) decide("approved");
+                        }}
+                      >
+                        Override and approve
+                      </button>
+                    </div>
+                  )}
+
+                  {showRewrite && !editing && (
+                    <div className="rewrite">
+                      <label className="field__label" htmlFor="rewrite-note">
+                        What should change? <span className="field__hint">The agent also fixes every note in the margin.</span>
+                      </label>
+                      <textarea
+                        id="rewrite-note"
+                        className="textarea"
+                        rows={2}
+                        value={note}
+                        placeholder="e.g. Lead with the 11 PM interview, and make it warmer"
+                        onChange={(e) => setNote(e.target.value)}
+                      />
+                      <div>
+                        <button className="btn btn--primary" disabled={busy === "rewrite"} onClick={rewrite}>
+                          {busy === "rewrite" ? "Rewriting…" : "Rewrite this piece"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
-              {run.input.notes && <p style={{ fontSize: 13.5, color: "var(--graphite)" }}>{run.input.notes}</p>}
-            </section>
-            <section>
-              <h3>Checks across the pack</h3>
-              <p style={{ fontSize: 13.5, margin: 0 }}>
-                {findings.filter((f) => f.severity === "block").length} blocking and {findings.filter((f) => f.severity === "warn").length} to
-                consider. Open a draft to see its notes.
-              </p>
-            </section>
-          </aside>
-        )}
+            </div>
+
+            {piece ? (
+              <Margin
+                key={`margin-${view}`}
+                findings={pieceFindings}
+                factIds={piece.factIds}
+                facts={run.research.facts}
+                activeId={active}
+                onSelect={setActive}
+              />
+            ) : (
+              <aside className="margin self-start" aria-label="About this run" tabIndex={0} key={`margin-${view}`}>
+                <section>
+                  <h3>Brief</h3>
+                  <p className="m-0 font-serif text-[17px] leading-snug text-ink">{run.input.topic}</p>
+                  {run.input.sourceUrl && (
+                    <p className="text-[13px] [overflow-wrap:anywhere]">
+                      <a href={run.input.sourceUrl} target="_blank" rel="noreferrer">
+                        {run.input.sourceUrl}
+                      </a>
+                    </p>
+                  )}
+                  {run.input.notes && <p className="text-[13.5px] text-muted">{run.input.notes}</p>}
+                </section>
+                <section>
+                  <h3>Checks across the pack</h3>
+                  <p className="m-0 text-[13.5px]">
+                    {findings.filter((f) => f.severity === "block").length} blocking and {findings.filter((f) => f.severity === "warn").length} to
+                    consider. Open a draft to see its notes.
+                  </p>
+                </section>
+              </aside>
+            )}
+          </div>
+        </section>
       </div>
       {toast && (
         <div className="toast" role="status">
@@ -552,31 +580,43 @@ interface Tab {
 interface TabGroup {
   label: string;
   tabs: Tab[];
+  /** Shown before the tabs, for groups whose tabs are only numbered. */
+  showLabel?: boolean;
+}
+
+/** The open piece's name, with its review status beside it. */
+function StageHead({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="mb-5 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-line pb-4">
+      <h1 className="m-0 text-[22px] font-extrabold tracking-[-0.01em] text-ink">{title}</h1>
+      {children}
+    </div>
+  );
+}
+
+/** Content Studio's review bar: what you're deciding on, then the actions. */
+function ReviewBar({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div
+      role="group"
+      aria-label={`Human review for ${label}`}
+      className="sheet mt-5 flex flex-col gap-3 rounded-[14px] border border-line bg-panel p-3.5 sm:flex-row sm:items-center sm:justify-between"
+    >
+      <span className="text-sm font-bold text-ink">Human review</span>
+      <div className="flex flex-wrap gap-2 sm:justify-end">{children}</div>
+    </div>
+  );
 }
 
 /**
- * The pack's navigation, down the left: approval progress, every piece
- * (overview, drafts, visual), then the downloads. Arrow keys move between pieces.
+ * Every piece of the pack as tabs along the top (overview, drafts, visual), with
+ * Content Studio's underline. Arrow keys move between pieces.
  */
-function Rail({
-  groups,
-  view,
-  onGo,
-  approved,
-  total,
-  actions,
-}: {
-  groups: TabGroup[];
-  view: View;
-  onGo: (v: View) => void;
-  approved: number;
-  total: number;
-  actions: ReactNode;
-}) {
+function PieceTabs({ groups, view, onGo }: { groups: TabGroup[]; view: View; onGo: (v: View) => void }) {
   const tabs = useRef(new Map<View, HTMLButtonElement>());
   const order = groups.flatMap((g) => g.tabs.map((t) => t.id));
 
-  // On phones the list is a sideways strip: keep the open piece in view.
+  // The strip scrolls sideways when it doesn't fit: keep the open piece in view.
   useEffect(() => {
     tabs.current.get(view)?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [view]);
@@ -592,26 +632,24 @@ function Rail({
   }
 
   return (
-    <nav className="rail" aria-label="Content pack">
-      <div className="rail__progress">
-        <span>
-          <b>
-            {approved} of {total}
-          </b>{" "}
-          approved
-        </span>
-        <div className="meter" role="progressbar" aria-label="Pieces approved" aria-valuemin={0} aria-valuemax={total} aria-valuenow={approved}>
-          <span style={{ width: `${(approved / total) * 100}%` }} />
-        </div>
-      </div>
-
-      <div className="rail__list" role="tablist" aria-label="Pieces" aria-orientation="vertical" onKeyDown={onKeyDown}>
-        {groups.map((g) => (
-          <div className="rail__group" key={g.label}>
-            <div className="rail__heading" aria-hidden>
+    <div
+      role="tablist"
+      aria-label="Pieces"
+      aria-orientation="horizontal"
+      onKeyDown={onKeyDown}
+      className="flex items-stretch overflow-x-auto overflow-y-hidden border-b border-line px-2 [scrollbar-width:thin] sm:px-3"
+    >
+      {groups.map((g, gi) => (
+        <div key={g.label} className="flex items-stretch">
+          {gi > 0 && <span aria-hidden className="mx-1.5 my-3.5 w-px shrink-0 bg-line" />}
+          {g.showLabel && (
+            <span aria-hidden className="self-center pr-1 pl-1 text-[11px] font-extrabold tracking-[.06em] text-muted uppercase">
               {g.label}
-            </div>
-            {g.tabs.map((t) => (
+            </span>
+          )}
+          {g.tabs.map((t) => {
+            const selected = view === t.id;
+            return (
               <button
                 key={t.id}
                 ref={(el) => {
@@ -620,27 +658,30 @@ function Rail({
                 }}
                 type="button"
                 role="tab"
-                className="rail__item"
-                aria-selected={view === t.id}
+                aria-selected={selected}
                 aria-label={tabName(t)}
-                tabIndex={view === t.id ? 0 : -1}
+                tabIndex={selected ? 0 : -1}
                 onClick={() => onGo(t.id)}
+                className={cn(
+                  "-mb-px flex shrink-0 cursor-pointer items-center gap-1.5 border-0 border-b-2 border-solid bg-transparent px-2.5 py-3.5 text-[13px] font-bold whitespace-nowrap transition-colors",
+                  selected ? "border-brand text-brand-text" : "border-transparent text-muted hover:text-ink",
+                )}
               >
-                {t.id === "research" ? <span aria-hidden /> : <span className="status-dot" data-status={t.status ?? "pending"} aria-hidden />}
-                <span className="rail__label">{t.label}</span>
-                <span className="counts" aria-hidden>
-                  {/* Numbers drawn by CSS, not text: the visible label stays the label; the spoken name has the counts. */}
-                  {t.counts && t.counts.block > 0 && <span className="count count--block" data-n={t.counts.block} title={`${t.counts.block} blocking`} />}
-                  {t.counts && t.counts.warn > 0 && <span className="count count--warn" data-n={t.counts.warn} title={`${t.counts.warn} to consider`} />}
-                </span>
+                {t.id !== "research" && <span className="status-dot" data-status={t.status ?? "pending"} aria-hidden />}
+                {t.label}
+                {t.counts && (t.counts.block > 0 || t.counts.warn > 0) && (
+                  <span className="counts" aria-hidden>
+                    {/* Numbers drawn by CSS, not text: the visible label stays the label; the spoken name has the counts. */}
+                    {t.counts.block > 0 && <span className="count count--block" data-n={t.counts.block} title={`${t.counts.block} blocking`} />}
+                    {t.counts.warn > 0 && <span className="count count--warn" data-n={t.counts.warn} title={`${t.counts.warn} to consider`} />}
+                  </span>
+                )}
               </button>
-            ))}
-          </div>
-        ))}
-      </div>
-
-      <div className="rail__actions">{actions}</div>
-    </nav>
+            );
+          })}
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -664,10 +705,10 @@ function StatusLabel({ status, entry }: { status?: ReviewStatus; entry?: ReviewL
   const by = entry?.by && entry.status === status && status !== "pending" ? ` by ${entry.by}${entry.byVerified ? "" : " (unverified)"}` : "";
   const text = base + by;
   return (
-    <span className="stage__sub" style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+    <Badge tone={status === "approved" ? "success" : status === "changes" ? "danger" : "warning"}>
       <span key={status} className="status-dot" data-status={status ?? "pending"} aria-hidden />
       {text}
-    </span>
+    </Badge>
   );
 }
 
@@ -679,7 +720,7 @@ function SendStatus({ entry }: { entry: SendLogEntry }) {
   const when = new Date(entry.at).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
   const by = entry.by ? ` by ${entry.by}${entry.byVerified ? "" : " (unverified)"}` : "";
   return (
-    <p className="decision send-status" data-ok={entry.ok}>
+    <p className="sheet send-status mt-3 text-[13px]" data-ok={entry.ok}>
       {entry.ok ? `Sent to ${entry.to} as a draft, ${when}${by}.` : `Sending to ${entry.to} failed, ${when}: ${entry.error ?? "unknown error"}`}
     </p>
   );

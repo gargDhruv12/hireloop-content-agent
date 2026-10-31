@@ -7,6 +7,7 @@ import { loadRun, storageNotice } from "@/lib/store/runs";
 import { runCost } from "@/lib/ai/pricing";
 import { schedulerConfig } from "@/lib/scheduler";
 import { ArchiveButton } from "@/components/ArchiveButton";
+import { cn, wrap } from "@/components/ui/primitives";
 
 export const dynamic = "force-dynamic";
 
@@ -26,22 +27,26 @@ export default async function RunPage({
   if (!run) notFound();
   return (
     <>
-      <TopBar title={run.input.topic} mock={run.models.mock} notice={storageNotice()} />
-      {run.archived && (
-        <div className="archived-banner" role="status">
-          <span>This pack is archived. It&apos;s hidden from the home page and the pack list.</span>
-          <ArchiveButton id={run.id} archived />
-        </div>
-      )}
-      <Desk
-        initialRun={run}
-        initialView={initialView}
-        client={(({ name, bannedPhrases, brand, ctaPattern, primaryCta }) => ({ name, bannedPhrases, brand, ctaPattern, primaryCta }))(
-          clientById(run.input.clientId),
+      <TopBar mock={run.models.mock} notice={storageNotice()} />
+      <main id="main">
+        {run.archived && (
+          <div role="status" className="border-b border-warn/30 bg-warn-soft">
+            <div className={cn(wrap, "flex flex-wrap items-center justify-between gap-3 py-3 text-sm font-semibold text-warn")}>
+              <span>This pack is archived. It&apos;s hidden from the home page and the pack list.</span>
+              <ArchiveButton id={run.id} archived />
+            </div>
+          </div>
         )}
-        cost={runCost(run)}
-        scheduler={schedulerConfig()?.name ?? null}
-      />
+        <Desk
+          initialRun={run}
+          initialView={initialView}
+          client={(({ name, bannedPhrases, brand, ctaPattern, primaryCta }) => ({ name, bannedPhrases, brand, ctaPattern, primaryCta }))(
+            clientById(run.input.clientId),
+          )}
+          cost={runCost(run)}
+          scheduler={schedulerConfig()?.name ?? null}
+        />
+      </main>
     </>
   );
 }

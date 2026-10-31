@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { Inter, Source_Serif_4 } from "next/font/google";
+import { Manrope, Source_Serif_4 } from "next/font/google";
 import "./globals.css";
 
-// Sans for the tool, serif for the copy being reviewed.
-const sans = Inter({ subsets: ["latin"], variable: "--font-sans" });
-const serif = Source_Serif_4({ subsets: ["latin"], weight: ["400", "600"], variable: "--font-serif" });
+// Manrope for the tool (as in Content Studio), serif for the copy being reviewed.
+const sans = Manrope({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"], variable: "--font-manrope" });
+const serif = Source_Serif_4({ subsets: ["latin"], weight: ["400", "600"], variable: "--font-serif-copy" });
 
 export const metadata: Metadata = {
   title: "HireLoop content desk",
