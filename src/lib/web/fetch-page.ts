@@ -18,37 +18,59 @@ const TIMEOUT_MS = 12_000;
 
 export class FetchPageError extends Error {}
 
+const MAX_REDIRECTS = 5;
+
 export async function fetchPage(rawUrl: string): Promise<PageText> {
-  const url = assertPublicHttpUrl(rawUrl);
+  let url = assertPublicHttpUrl(rawUrl);
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   let res: Response;
+  let html: string;
   try {
-    res = await fetch(url, {
-      signal: controller.signal,
-      redirect: "follow",
-      headers: {
-        "user-agent": "HireLoopContentAgent/0.1 (+research bot for a student project)",
-        accept: "text/html,application/xhtml+xml",
-      },
-    });
-  } catch (err) {
-    throw new FetchPageError(
-      controller.signal.aborted ? `Timed out after ${TIMEOUT_MS / 1000}s reading ${url.hostname}.` : `Couldn't reach ${url.hostname}: ${(err as Error).message}`,
-    );
+    // Follow redirects by hand so every hop is checked: a public link must
+    // not be able to bounce the agent to a private or local address.
+    for (let hop = 0; ; hop++) {
+      await assertResolvesPublic(url);
+      try {
+        res = await fetch(url, {
+          signal: controller.signal,
+          redirect: "manual",
+          headers: {
+            "user-agent": "HireLoopContentAgent/0.1 (+research bot for a student project)",
+            accept: "text/html,application/xhtml+xml",
+          },
+        });
+      } catch (err) {
+        throw new FetchPageError(
+          controller.signal.aborted
+            ? `Timed out after ${TIMEOUT_MS / 1000}s reading ${url.hostname}.`
+            : `Couldn't reach ${url.hostname}: ${(err as Error).message}`,
+        );
+      }
+      const location = res.headers.get("location");
+      if (res.status < 300 || res.status >= 400 || !location) break;
+      if (hop >= MAX_REDIRECTS) throw new FetchPageError(`${url.hostname} redirected too many times.`);
+      url = assertPublicHttpUrl(new URL(location, url).toString());
+    }
+
+    if (!res.ok) throw new FetchPageError(`${url.hostname} answered ${res.status}. Check the link opens in a browser.`);
+    const type = res.headers.get("content-type") ?? "";
+    if (!type.includes("html") && !type.includes("text")) {
+      throw new FetchPageError(`That link is a ${type || "non-HTML"} file, not a web page. Paste a link to an article.`);
+    }
+    try {
+      html = (await res.text()).slice(0, MAX_BYTES);
+    } catch (err) {
+      throw new FetchPageError(
+        controller.signal.aborted ? `Timed out after ${TIMEOUT_MS / 1000}s reading ${url.hostname}.` : `Couldn't read ${url.hostname}: ${(err as Error).message}`,
+      );
+    }
   } finally {
     clearTimeout(timer);
   }
 
-  if (!res.ok) throw new FetchPageError(`${url.hostname} answered ${res.status}. Check the link opens in a browser.`);
-  const type = res.headers.get("content-type") ?? "";
-  if (!type.includes("html") && !type.includes("text")) {
-    throw new FetchPageError(`That link is a ${type || "non-HTML"} file, not a web page. Paste a link to an article.`);
-  }
-
-  const html = (await res.text()).slice(0, MAX_BYTES);
-  const page = htmlToText(html, res.url || url.toString());
+  const page = htmlToText(html, url.toString());
   if (page.text.length < 200) {
     throw new FetchPageError(
       `Only ${page.text.length} characters of text came back from ${url.hostname}. The page may need JavaScript or a login. Paste the article text into the notes box instead.`,
@@ -71,17 +93,44 @@ export function assertPublicHttpUrl(raw: string): URL {
   const host = url.hostname.toLowerCase();
   const privateHost =
     host === "localhost" ||
+    host.endsWith(".localhost") ||
     host.endsWith(".local") ||
     host.endsWith(".internal") ||
-    /^127\./.test(host) ||
-    /^10\./.test(host) ||
-    /^192\.168\./.test(host) ||
-    /^172\.(1[6-9]|2\d|3[01])\./.test(host) ||
-    /^169\.254\./.test(host) ||
-    host === "0.0.0.0" ||
+    isPrivateIp(host) ||
     host.startsWith("[");
   if (privateHost) throw new FetchPageError("Links to private or local addresses can't be read.");
   return url;
+}
+
+function isPrivateIp(ip: string): boolean {
+  const v4 = ip.replace(/^::ffff:/i, "");
+  return (
+    /^0\./.test(v4) ||
+    /^127\./.test(v4) ||
+    /^10\./.test(v4) ||
+    /^192\.168\./.test(v4) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(v4) ||
+    /^169\.254\./.test(v4) ||
+    /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(v4) ||
+    ip === "::" ||
+    ip === "::1" ||
+    /^f[cd]/i.test(ip) ||
+    /^fe[89ab]/i.test(ip)
+  );
+}
+
+/** A public-looking name can still point at a private machine; check where it resolves. */
+async function assertResolvesPublic(url: URL): Promise<void> {
+  const { lookup } = await import("node:dns/promises");
+  let addresses: { address: string }[];
+  try {
+    addresses = await lookup(url.hostname, { all: true });
+  } catch {
+    throw new FetchPageError(`Couldn't find ${url.hostname}. Check the link is spelled right.`);
+  }
+  if (addresses.some((a) => isPrivateIp(a.address))) {
+    throw new FetchPageError("Links to private or local addresses can't be read.");
+  }
 }
 
 /** Small, dependency-free HTML → text. Good enough for articles and marketing pages. */

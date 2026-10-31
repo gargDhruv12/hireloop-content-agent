@@ -12,22 +12,44 @@ export async function POST(req: Request) {
   let input;
   try {
     assertConfigured();
-    input = validateInput(await req.json());
+    const body = await req.json().catch(() => {
+      throw new Error("The request was empty or not JSON.");
+    });
+    input = validateInput(body ?? {});
   } catch (err) {
     return Response.json({ error: (err as Error).message }, { status: 400 });
   }
 
   const encoder = new TextEncoder();
+  // If the browser tab closes mid-run, keep going and save the run anyway.
+  let open = true;
   const stream = new ReadableStream({
     async start(controller) {
-      const send = (e: RunEvent) => controller.enqueue(encoder.encode(JSON.stringify(e) + "\n"));
+      const send = (e: RunEvent) => {
+        if (!open) return;
+        try {
+          controller.enqueue(encoder.encode(JSON.stringify(e) + "\n"));
+        } catch {
+          open = false;
+        }
+      };
       try {
         await runPipeline(input, send);
       } catch (err) {
-        send({ type: "error", message: (err as Error).message });
+        console.error("[run] failed:", err);
+        send({ type: "error", message: (err as Error).message || "The run failed. Check the server log." });
       } finally {
-        controller.close();
+        if (open) {
+          try {
+            controller.close();
+          } catch {
+            /* already closed */
+          }
+        }
       }
+    },
+    cancel() {
+      open = false;
     },
   });
 

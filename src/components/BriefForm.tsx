@@ -40,6 +40,8 @@ export function BriefForm({ audiences }: { audiences: string[] }) {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ topic, sourceUrl, audience, notes }),
+      }).catch(() => {
+        throw new Error("The server couldn't be reached. Check that npm run dev is still running.");
       });
       if (!res.ok || !res.body) {
         const data = await res.json().catch(() => ({}));
@@ -51,14 +53,21 @@ export function BriefForm({ audiences }: { audiences: string[] }) {
       const decoder = new TextDecoder();
       let buffer = "";
       for (;;) {
-        const { value, done } = await reader.read();
+        const { value, done } = await reader.read().catch(() => {
+          throw new Error("The connection dropped during the run. It may still finish: check Recent packs in a minute.");
+        });
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split("\n");
         buffer = lines.pop() ?? "";
         for (const line of lines) {
           if (!line.trim()) continue;
-          const event = JSON.parse(line) as RunEvent;
+          let event: RunEvent;
+          try {
+            event = JSON.parse(line) as RunEvent;
+          } catch {
+            continue; // a garbled progress line shouldn't stop the run
+          }
           if (event.type === "step") {
             setSteps((prev) => prev && { ...prev, [event.step]: { status: event.status, detail: event.detail ?? prev[event.step].detail } });
           } else if (event.type === "done") {

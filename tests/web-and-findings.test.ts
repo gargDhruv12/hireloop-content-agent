@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { assertPublicHttpUrl, htmlToText } from "../src/lib/web/fetch-page";
+import { assertPublicHttpUrl, fetchPage, htmlToText } from "../src/lib/web/fetch-page";
 import { mergeFindings, refreshAfterEdit } from "../src/lib/content/findings";
 import { hireloop } from "../src/clients/hireloop";
 import { mockFixtures } from "../src/lib/ai/mock";
@@ -25,7 +25,7 @@ test("htmlToText keeps the article and drops scripts and navigation", () => {
 
 test("only public http(s) links can be fetched", () => {
   assert.ok(assertPublicHttpUrl("https://example.com/post"));
-  for (const bad of ["http://localhost:3000", "http://127.0.0.1", "http://192.168.1.5/x", "file:///etc/passwd", "not a url", "http://10.0.0.2"]) {
+  for (const bad of ["http://localhost:3000", "http://127.0.0.1", "http://192.168.1.5/x", "file:///etc/passwd", "not a url", "http://10.0.0.2", "http://0.0.0.0", "http://100.64.0.1", "http://app.localhost", "http://[::1]/"]) {
     assert.throws(() => assertPublicHttpUrl(bad), Error, bad);
   }
 });
@@ -56,4 +56,15 @@ test("editing the flagged words away clears the reviewer finding", () => {
   const edited = setField(mockFixtures.draft, "instagram.caption", "Interview when it suits you. Even at 11 PM. Try a sample AI interview.");
   const after = refreshAfterEdit(edited, ai, hireloop, hireloop.facts);
   assert.ok(!after.some((x) => x.by === "ai" && x.pieceId === "instagram"));
+});
+
+test("a public link that redirects to a private address is refused", async () => {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async () =>
+    new Response(null, { status: 302, headers: { location: "http://169.254.169.254/latest/meta-data/" } })) as typeof fetch;
+  try {
+    await assert.rejects(fetchPage("http://93.184.215.14/article"), /private or local/);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
 });

@@ -13,6 +13,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 process.env.MOCK_AI = "1";
+const startDir = process.cwd();
 const dir = mkdtempSync(path.join(tmpdir(), "hireloop-smoke-"));
 process.chdir(dir);
 
@@ -21,6 +22,7 @@ async function main() {
   const one = await import("../src/app/api/runs/[id]/route");
   const piece = await import("../src/app/api/runs/[id]/pieces/[pieceId]/route");
   const image = await import("../src/app/api/runs/[id]/image/route");
+  const exportRoute = await import("../src/app/api/runs/[id]/export/route");
   const json = (body: unknown) => ({ method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
 
   // 1. Bad input is rejected with a readable message.
@@ -73,6 +75,29 @@ async function main() {
   assert.equal(regen.status, 200);
   console.log("image     ", "regenerated at 16:9");
 
+  // 9. An approval made while a rewrite is running is not lost.
+  const slow = piece.POST(new Request("http://x", json({ note: "warmer" })), { params: Promise.resolve({ id: done.runId, pieceId: "linkedin" }) });
+  await one.PATCH(new Request("http://x", { ...json({ review: { x: "approved" } }), method: "PATCH" }), ctx);
+  assert.equal((await slow).status, 200);
+  run = await (await one.GET(new Request("http://x"), ctx)).json();
+  assert.equal(run.review.x, "approved", "approval made during a rewrite was kept");
+  console.log("race      ", "approval during a rewrite kept");
+
+  // 10. Download approved: a zip with the Markdown and the approved image.
+  await one.PATCH(new Request("http://x", { ...json({ review: { image: "approved" } }), method: "PATCH" }), ctx);
+  const zipRes = await exportRoute.GET(new Request("http://x"), ctx);
+  assert.equal(zipRes.status, 200, await zipRes.clone().text());
+  assert.match(zipRes.headers.get("content-disposition") ?? "", /approved-\d{12}\.zip/);
+  const zip = Buffer.from(await zipRes.arrayBuffer());
+  assert.equal(zip.subarray(0, 2).toString(), "PK");
+  const zipText = zip.toString("latin1");
+  assert.ok(zipText.includes("approved.md") && /image\.(svg|png|jpg|webp)/.test(zipText), "zip has the Markdown and the image");
+  assert.ok(zipText.includes("![") && zipText.includes("## Blog post"), "Markdown links the image and has the blog");
+  console.log("export    ", `zip ${zip.length} bytes with approved.md and the image`);
+  const dl = await image.GET(new Request("http://x?download=1"), ctx);
+  assert.match(dl.headers.get("content-disposition") ?? "", /^attachment/);
+  console.log("image     ", "downloadable as a file");
+
   console.log("\nSmoke test passed. Run folder:", dir);
 }
 
@@ -82,5 +107,7 @@ main()
     process.exitCode = 1;
   })
   .finally(() => {
+    // Windows can't delete the folder the process is standing in.
+    process.chdir(startDir);
     if (!process.exitCode) rmSync(dir, { recursive: true, force: true });
   });

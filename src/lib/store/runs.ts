@@ -42,13 +42,46 @@ export async function loadRun(id: string): Promise<Run | null> {
   }
 }
 
+/**
+ * Load, change and save a run with no other update to the same run in
+ * between. Edits, approvals, rewrites and new images all save the whole run,
+ * so without this a slow rewrite could overwrite an approval made meanwhile.
+ * `change` gets the latest saved run; return the run to save.
+ */
+const locks = new Map<string, Promise<unknown>>();
+
+export async function updateRun(id: string, change: (latest: Run) => Run | Promise<Run>): Promise<Run | null> {
+  const previous = locks.get(id) ?? Promise.resolve();
+  const next = previous.catch(() => {}).then(async () => {
+    const latest = await loadRun(id);
+    if (!latest) return null;
+    const updated = await change(latest);
+    await saveRun(updated);
+    return updated;
+  });
+  locks.set(id, next);
+  try {
+    return await next;
+  } finally {
+    if (locks.get(id) === next) locks.delete(id);
+  }
+}
+
 export async function listRuns(limit = 20): Promise<Pick<Run, "id" | "createdAt" | "input" | "findings" | "review">[]> {
   try {
     const files = (await fs.readdir(RUNS)).filter((f) => f.endsWith(".json"));
     const runs = await Promise.all(
-      files.map(async (f) => JSON.parse(await fs.readFile(path.join(RUNS, f), "utf8")) as Run),
+      // One unreadable file shouldn't hide every other pack.
+      files.map(async (f) => {
+        try {
+          return JSON.parse(await fs.readFile(path.join(RUNS, f), "utf8")) as Run;
+        } catch {
+          return null;
+        }
+      }),
     );
     return runs
+      .filter((r): r is Run => !!r && typeof r.createdAt === "string" && !!r.input)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
       .slice(0, limit)
       .map(({ id, createdAt, input, findings, review }) => ({ id, createdAt, input, findings, review }));

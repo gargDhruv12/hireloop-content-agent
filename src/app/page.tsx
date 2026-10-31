@@ -1,7 +1,7 @@
 import { hireloop } from "@/clients/hireloop";
 import { BriefForm } from "@/components/BriefForm";
 import { TopBar } from "@/components/TopBar";
-import { isMock, models } from "@/lib/ai/models";
+import { isMock } from "@/lib/ai/models";
 import { listRuns } from "@/lib/store/runs";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +10,7 @@ export default async function Home() {
   const runs = await listRuns(8);
   return (
     <>
-      <TopBar mock={isMock()} model={models.writer} />
+      <TopBar mock={isMock()} />
       <div className="start">
         <div>
           <h1 className="start__lead">What should HireLoop talk about this week?</h1>

@@ -102,6 +102,11 @@ export function ImageView({
               <button className="btn" disabled={busy} onClick={() => onRegenerate(brief)}>
                 {busy ? "Generating…" : "Generate again"}
               </button>
+              {imageUrl && (
+                <a className="btn btn--quiet" href={`${imageUrl}${imageUrl.includes("?") ? "&" : "?"}download=1`} download>
+                  Download image
+                </a>
+              )}
             </>
           )}
         </div>

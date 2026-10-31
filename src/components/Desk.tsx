@@ -6,7 +6,6 @@ import type { ContentPack, ImageBrief } from "@/lib/content/schemas";
 import type { Finding, PieceId, ReviewStatus, Run } from "@/lib/content/types";
 import { getPieces, setField } from "@/lib/content/pieces";
 import { refreshAfterEdit } from "@/lib/content/findings";
-import { approvedMarkdown } from "@/lib/content/export";
 import { Proof } from "./Proof";
 import { Margin } from "./Margin";
 import { Editor } from "./Editor";
@@ -37,7 +36,7 @@ export function Desk({
   const [editing, setEditing] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [active, setActive] = useState<string | null>(null);
-  const [busy, setBusy] = useState<null | "save" | "rewrite" | "image">(null);
+  const [busy, setBusy] = useState<null | "save" | "rewrite" | "image" | "decide" | "download">(null);
   const [note, setNote] = useState("");
   const [showRewrite, setShowRewrite] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,19 +65,31 @@ export function Desk({
     return out;
   }, [pieceFindings]);
 
-  async function patch(body: object): Promise<Run | null> {
-    const res = await fetch(`/api/runs/${run.id}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.error ?? "Couldn't save.");
+  /**
+   * Call the API for an updated run. Never throws: a dropped connection or a
+   * server answer that isn't JSON comes back as a readable error.
+   */
+  async function api(url: string, method: string, body: object, failure: string): Promise<{ run: Run } | { error: string }> {
+    let res: Response;
+    try {
+      res = await fetch(url, { method, headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    } catch {
+      return { error: `${failure} The server couldn't be reached. Check that npm run dev is still running.` };
+    }
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data) return { error: data?.error ?? `${failure} The server answered ${res.status}.` };
+    return { run: data as Run };
+  }
+
+  async function patch(body: { pack?: ContentPack; review?: Run["review"] }): Promise<Run | null> {
+    const out = await api(`/api/runs/${run.id}`, "PATCH", body, "Couldn't save.");
+    if ("error" in out) {
+      setError(out.error);
       return null;
     }
-    setRun(data);
-    return data;
+    setError(null);
+    setRun(out.run);
+    return out.run;
   }
 
   function go(next: View) {
@@ -106,7 +117,7 @@ export function Desk({
   async function saveEdits() {
     setBusy("save");
     // An edited piece needs a fresh look, so it goes back to pending.
-    const saved = await patch({ pack, review: { ...run.review, [view]: "pending" } });
+    const saved = await patch({ pack, review: { [view]: "pending" } });
     setBusy(null);
     if (saved) {
       setFindings(saved.findings);
@@ -117,21 +128,21 @@ export function Desk({
   }
 
   async function decide(status: ReviewStatus) {
-    const saved = await patch({ review: { ...run.review, [view]: status } });
+    if (busy) return;
+    setBusy("decide");
+    // Send only this piece's status, so a stale copy never undoes another approval.
+    const saved = await patch({ review: { [view]: status } });
+    setBusy(null);
     if (saved) setToast(status === "approved" ? "Approved" : status === "changes" ? "Marked as needing changes" : "Set back to pending");
   }
 
   async function rewrite() {
     setBusy("rewrite");
     setError(null);
-    const res = await fetch(`/api/runs/${run.id}/pieces/${view}`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ note }),
-    });
-    const data = await res.json();
+    const out = await api(`/api/runs/${run.id}/pieces/${view}`, "POST", { note }, "Rewrite failed.");
     setBusy(null);
-    if (!res.ok) return setError(data.error ?? "Rewrite failed.");
+    if ("error" in out) return setError(out.error);
+    const data = out.run;
     setRun(data);
     setPack(data.pack);
     setFindings(data.findings);
@@ -143,29 +154,55 @@ export function Desk({
   async function regenerateImage(brief: ImageBrief) {
     setBusy("image");
     setError(null);
-    const res = await fetch(`/api/runs/${run.id}/image`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ brief }),
-    });
-    const data = await res.json();
+    const out = await api(`/api/runs/${run.id}/image`, "POST", { brief }, "The image couldn't be generated.");
     setBusy(null);
-    if (!res.ok) {
-      setRun({ ...run, imageError: data.error });
+    if ("error" in out) {
+      // Shown next to the image, where the person is looking.
+      setRun((r) => ({ ...r, imageError: out.error }));
       return;
     }
+    const data = out.run;
     setRun(data);
     setPack(data.pack);
     setToast("New image ready");
   }
 
-  function download(name: string, content: string, type: string) {
-    const url = URL.createObjectURL(new Blob([content], { type }));
+  function download(name: string, content: Blob) {
+    const url = URL.createObjectURL(content);
     const a = document.createElement("a");
     a.href = url;
     a.download = name;
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    a.remove();
+    // Some browsers start the download after click() returns; revoke a little later.
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  }
+
+  /** The approved Markdown and, if approved, the image, as one .zip built from the saved run. */
+  async function downloadApproved() {
+    if (dirty && !confirm("You have unsaved edits. They won't be in the download. Download anyway?")) return;
+    setBusy("download");
+    setError(null);
+    try {
+      let res: Response;
+      try {
+        res = await fetch(`/api/runs/${run.id}/export`, { cache: "no-store" });
+      } catch {
+        throw new Error("the server couldn't be reached.");
+      }
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error ?? `the server answered ${res.status}.`);
+      }
+      const name = /filename="([^"]+)"/.exec(res.headers.get("content-disposition") ?? "")?.[1] ?? `${run.id}-approved.zip`;
+      download(name, await res.blob());
+      setToast(run.review.image === "approved" ? "Downloaded the approved pieces and image" : "Downloaded the approved pieces");
+    } catch (err) {
+      setError(`Couldn't download: ${(err as Error).message}`);
+    } finally {
+      setBusy(null);
+    }
   }
 
   const counts = (id: PieceId) => {
@@ -216,18 +253,36 @@ export function Desk({
           <div className="rail__group" style={{ display: "grid", gap: 8, padding: "0 20px" }}>
             <button
               className="btn btn--primary"
-              disabled={approvedCount === 0}
-              onClick={() => download(`${run.id}-approved.md`, approvedMarkdown(run, run.pack), "text/markdown")}
+              disabled={approvedCount === 0 || busy === "download"}
+              title={approvedCount === 0 ? "Approve at least one piece first" : "Approved pieces as Markdown, plus the image if it's approved (.zip)"}
+              onClick={downloadApproved}
             >
-              Download approved
+              {busy === "download" ? "Preparing…" : "Download approved"}
             </button>
-            <button className="btn btn--quiet" onClick={() => download(`${run.id}.json`, JSON.stringify(run, null, 2), "application/json")}>
+            {run.image && (
+              <a className="btn btn--quiet" href={`/api/runs/${run.id}/image?download=1&v=${run.image.file}`} download={run.image.file}>
+                Download image
+              </a>
+            )}
+            <button
+              className="btn btn--quiet"
+              onClick={() => download(`${run.id}.json`, new Blob([JSON.stringify(run, null, 2)], { type: "application/json" }))}
+            >
               Download full run (JSON)
             </button>
           </div>
         </nav>
 
         <main className="stage">
+          {error && (
+            <p className="error" role="alert" style={{ display: "flex", gap: 12, alignItems: "baseline", marginTop: 0 }}>
+              <span style={{ flex: 1 }}>{error}</span>
+              <button className="btn btn--quiet" onClick={() => setError(null)}>
+                Dismiss
+              </button>
+            </p>
+          )}
+
           {view === "research" && (
             <>
               <div className="stage__head">
@@ -254,10 +309,14 @@ export function Desk({
                 onRegenerate={regenerateImage}
               />
               <div className="decision">
-                <button className="btn btn--approve" disabled={!run.image || run.review.image === "approved"} onClick={() => decide("approved")}>
+                <button
+                  className="btn btn--approve"
+                  disabled={!run.image || run.review.image === "approved" || busy === "decide"}
+                  onClick={() => decide("approved")}
+                >
                   {run.review.image === "approved" ? "Approved" : "Approve image"}
                 </button>
-                <button className="btn" onClick={() => decide("changes")}>
+                <button className="btn" disabled={busy === "decide"} onClick={() => decide("changes")}>
                   Needs changes
                 </button>
               </div>
@@ -287,12 +346,6 @@ export function Desk({
                 )}
               </div>
 
-              {error && (
-                <p className="error decision" role="alert">
-                  {error}
-                </p>
-              )}
-
               <div className="decision">
                 {editing ? (
                   <>
@@ -315,7 +368,7 @@ export function Desk({
                   <>
                     <button
                       className="btn btn--approve"
-                      disabled={blocking > 0 || run.review[piece.id] === "approved"}
+                      disabled={blocking > 0 || run.review[piece.id] === "approved" || busy === "decide"}
                       onClick={() => decide("approved")}
                     >
                       {run.review[piece.id] === "approved" ? "Approved" : "Approve"}

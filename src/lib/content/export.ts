@@ -2,8 +2,11 @@ import type { ContentPack } from "./schemas";
 import type { Run } from "./types";
 import { getPieces } from "./pieces";
 
-/** Approved pieces as one Markdown file, ready to paste into a doc or a scheduler. */
-export function approvedMarkdown(run: Run, pack: ContentPack): string {
+/**
+ * Approved pieces as one Markdown file, ready to paste into a doc or a scheduler.
+ * `imageFile` is the image's name next to this file in the download, if it's included.
+ */
+export function approvedMarkdown(run: Run, pack: ContentPack, imageFile?: string): string {
   const approved = getPieces(pack).filter((p) => run.review[p.id] === "approved");
   const lines = [
     `# ${run.client} content pack`,
@@ -24,7 +27,9 @@ export function approvedMarkdown(run: Run, pack: ContentPack): string {
     lines.push(`_Facts: ${piece.factIds.join(", ") || "none"}_`, "");
   }
   if (run.review.image === "approved") {
-    lines.push("## Image", "", `Alt text: ${pack.imageBrief.altText}`, "", `Brief: ${pack.imageBrief.concept}`, "");
+    lines.push("## Image", "");
+    if (imageFile) lines.push(`![${pack.imageBrief.altText.replace(/[[\]]/g, "")}](${imageFile})`, "");
+    lines.push(`Alt text: ${pack.imageBrief.altText}`, "", `Brief: ${pack.imageBrief.concept}`, "");
   }
   const used = new Set(approved.flatMap((p) => p.factIds));
   const facts = run.research.facts.filter((f) => used.has(f.id));

@@ -23,7 +23,7 @@ export default async function RunPage({
   if (!run) notFound();
   return (
     <>
-      <TopBar title={run.input.topic} mock={run.models.mock} model={run.models.writer} />
+      <TopBar title={run.input.topic} mock={run.models.mock} />
       <Desk initialRun={run} initialView={initialView} client={{ name: hireloop.name, bannedPhrases: hireloop.bannedPhrases }} />
     </>
   );

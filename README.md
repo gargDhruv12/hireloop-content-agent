@@ -110,6 +110,7 @@ src/
       lint.ts            the rules checker (no AI, runs on the server and in the browser)
       findings.ts        merging rules and reviewer findings
       export.ts          approved pieces → Markdown
+      zip.ts             bundles the Markdown and the image into one download
     ai/
       gemini.ts          the ONLY file that calls the AI SDK
       models.ts          model names from .env
@@ -159,7 +160,7 @@ docs/                    channel rules, Friday demo script
 4. **Edit** changes text directly; the rules re-check as you type. **Ask the agent to rewrite** takes a note ("make it warmer") and also fixes the margin notes.
 5. **Approve** each piece you'd publish. Editing an approved piece sends it back to pending.
 6. **Image**: edit the brief and regenerate if the picture doesn't fit.
-7. **Download approved** gives you a Markdown file with the approved pieces and the sources for their claims.
+7. **Download approved** gives you a `.zip` with `approved.md` (the approved pieces and the sources for their claims) and the image file if the image is approved. Each download is named with the time, so it never overwrites an earlier one. **Download image** saves just the picture.
 
 Tip: `?view=linkedin` (or `blog`, `x`, `meta-2`, `google-1`, `image`…) in the URL opens a pack straight on that piece.
 
