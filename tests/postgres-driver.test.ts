@@ -21,6 +21,10 @@ before(async () => {
   server = new PGLiteSocketServer({ db, port: PORT, host: "127.0.0.1" });
   await server.start();
   process.env.DATABASE_URL = `postgres://postgres:postgres@127.0.0.1:${PORT}/postgres`;
+  // PGlite is one database session, so its socket server takes one connection at a time.
+  // With the default pool, parallel transactions opened extra connections and CI got
+  // ECONNRESET. One connection makes the driver queue them, as a busy pool would.
+  process.env.DATABASE_POOL_MAX = "1";
   store = await import("../src/lib/store/runs");
 });
 
@@ -28,6 +32,7 @@ after(async () => {
   await server.stop();
   await db.close();
   delete process.env.DATABASE_URL;
+  delete process.env.DATABASE_POOL_MAX;
 });
 
 const run = {

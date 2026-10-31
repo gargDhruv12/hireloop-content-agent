@@ -39,7 +39,8 @@ function postgresClient(url: string): SqlClient {
   const connect = () =>
     (sql ??= import("postgres").then(({ default: postgres }) =>
       // Small pool: serverless functions each open their own connections.
-      postgres(url, { max: 5, idle_timeout: 20, prepare: false }),
+      // DATABASE_POOL_MAX lowers it further (some hosts cap connections per database).
+      postgres(url, { max: Number(process.env.DATABASE_POOL_MAX) || 5, idle_timeout: 20, prepare: false }),
     ));
   const wrap = (run: (text: string, params: unknown[]) => Promise<unknown>): SqlClient => ({
     query: async (text, params = []) => (await run(text, params)) as never,
