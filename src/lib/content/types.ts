@@ -99,6 +99,8 @@ export interface Run {
   timings: Partial<Record<StepName, number>>;
   /** Tokens this run used across all model calls (not counting later rewrites). Optional for older runs. */
   usage?: Usage;
+  /** Hidden from the home page and the default list; kept, and can be restored. */
+  archived?: boolean;
 }
 
 /** One review decision, recorded by the server so the export can show who signed off on what. */

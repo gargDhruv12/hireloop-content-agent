@@ -19,10 +19,10 @@ export async function GET(_req: Request, { params }: Ctx) {
   return Response.json(run);
 }
 
-/** Save a reviewer's edits and approvals. Rules are re-checked on the server too. */
+/** Save a reviewer's edits and approvals, or archive a pack. Rules are re-checked on the server too. */
 export async function PATCH(req: Request, { params }: Ctx) {
   const { id } = await params;
-  const body = (await req.json().catch(() => null)) as { pack?: unknown; review?: Record<string, unknown> } | null;
+  const body = (await req.json().catch(() => null)) as { pack?: unknown; review?: Record<string, unknown>; archived?: unknown } | null;
   if (!body || typeof body !== "object") return Response.json({ error: "The request was empty or not JSON." }, { status: 400 });
 
   let pack: Run["pack"] | undefined;
@@ -35,6 +35,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
   try {
     const next = await updateRun(id, (latest) => {
       const out: Run = { ...latest };
+      if (typeof body.archived === "boolean") out.archived = body.archived;
       if (pack) {
         out.pack = pack;
         out.findings = refreshAfterEdit(pack, latest.findings, hireloop, latest.research.facts);

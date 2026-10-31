@@ -103,9 +103,11 @@ export function createSqlStore(db: SqlClient): RunStore {
         usage: unknown;
         models: unknown;
         had_image: boolean;
+        archived: boolean | null;
       }>(
         `select id, data->>'createdAt' as created_at, data->'input' as input, data->'findings' as findings, data->'review' as review,
-                data->'usage' as usage, data->'models' as models, (data->'image') is not null and data->'image' <> 'null'::jsonb as had_image
+                data->'usage' as usage, data->'models' as models, (data->'image') is not null and data->'image' <> 'null'::jsonb as had_image,
+                coalesce((data->>'archived')::boolean, false) as archived
          from hl_runs order by created_at desc limit $1`,
         [limit],
       );
@@ -119,6 +121,7 @@ export function createSqlStore(db: SqlClient): RunStore {
           usage: json(r.usage) ?? undefined,
           models: json(r.models),
           hadImage: !!r.had_image,
+          archived: !!r.archived,
         }),
       );
     },

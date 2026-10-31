@@ -5,6 +5,7 @@ import { PIECE_ORDER } from "@/lib/content/pieces";
 import { TopBar } from "@/components/TopBar";
 import { loadRun, storageNotice } from "@/lib/store/runs";
 import { runCost } from "@/lib/ai/pricing";
+import { ArchiveButton } from "@/components/ArchiveButton";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,12 @@ export default async function RunPage({
   return (
     <>
       <TopBar title={run.input.topic} mock={run.models.mock} notice={storageNotice()} />
+      {run.archived && (
+        <div className="archived-banner" role="status">
+          <span>This pack is archived. It&apos;s hidden from the home page and the pack list.</span>
+          <ArchiveButton id={run.id} archived />
+        </div>
+      )}
       <Desk
         initialRun={run}
         initialView={initialView}
