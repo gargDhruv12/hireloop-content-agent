@@ -43,7 +43,20 @@ export function normaliseForMatch(s: string): string {
 export function groundingProblem(fact: Candidate, pageText: string): string | null {
   const quote = normaliseForMatch(fact.quote).replace(/^["']|["']$/g, "");
   if (quote.length < 8) return "The quote is too short to check.";
-  if (!normaliseForMatch(pageText).includes(quote)) return "The quote isn't in the page that was read.";
+  // A quote stitched from two passages with "..." is fine when every part is on the
+  // page, in order. The eval baseline found true facts dropped for this alone.
+  const parts = quote
+    .split(/\s*\.\.\.\s*/)
+    .map((p) => p.replace(/^[,;:.\s]+|[,;:.\s]+$/g, ""))
+    .filter(Boolean);
+  if (parts.some((p) => p.length < 8)) return "Part of the quote is too short to check.";
+  const page = normaliseForMatch(pageText);
+  let from = 0;
+  for (const part of parts) {
+    const at = page.indexOf(part, from);
+    if (at < 0) return "The quote isn't in the page that was read.";
+    from = at + part.length;
+  }
   const inQuote = numbersInFacts([{ text: fact.quote }]);
   const added = extractNumbers(fact.text).filter((n) => !inQuote.has(n.value));
   if (added.length) return `The fact adds ${added.map((n) => `"${n.raw}"`).join(", ")}, which its quote doesn't say.`;

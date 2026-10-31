@@ -175,3 +175,14 @@ test("a blog that ignores the supplied article gets a warning", () => {
   pack.blog.factIds = ["C8", "S1"];
   assert.ok(!lintPack(pack, { client: hireloop, facts }).some((f) => f.pieceId === "blog" && /article you supplied/.test(f.message)));
 });
+
+test("a quote stitched with an ellipsis passes only when every part is on the page, in order", () => {
+  const page = "In 2023 total technology industry revenue was US$282.6 billion, up 9%. The sector employed 5.8 million people.";
+  const fact = { text: "The sector employed 5.8 million people on US$282.6 billion of revenue.", quote: "revenue was US$282.6 billion... The sector employed 5.8 million people." };
+  assert.equal(groundingProblem(fact, page), null);
+  // Parts out of order, or one part invented, still fail.
+  assert.match(groundingProblem({ ...fact, quote: "The sector employed 5.8 million people ... revenue was US$282.6 billion" }, page) ?? "", /isn't in the page/);
+  assert.match(groundingProblem({ ...fact, quote: "revenue was US$282.6 billion... employed 9 million people" }, page) ?? "", /isn't in the page/);
+  // A tiny part can't carry a quote.
+  assert.match(groundingProblem({ ...fact, quote: "revenue was US$282.6 billion... up 9%" }, page) ?? "", /too short/);
+});

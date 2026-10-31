@@ -181,6 +181,8 @@ npm run lint           # ESLint with Next's core-web-vitals and TypeScript rules
 
 GitHub Actions (`.github/workflows/ci.yml`) runs lint, typecheck, tests, both offline smoke tests and a production build on every push and pull request. None of them need an API key.
 
+**Before merging any prompt, model or checker change, re-run the evals and compare with [`evals/BASELINE.md`](evals/BASELINE.md)** (live results from 31 October 2026, with what each column should look like).
+
 `npm run eval` writes a table to `evals/results/` with, per case:
 
 - blocking problems in the first draft → after self-revision
