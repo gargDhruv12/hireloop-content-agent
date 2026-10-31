@@ -272,6 +272,12 @@ export function mockStructured(task: MockTask, prompt: string): unknown {
       return { findings: aiFindings.filter((f) => prompt.includes(f.excerpt)) };
     case "revise": {
       const id = /PIECE_ID: ([a-z0-9-]+)/.exec(prompt)?.[1] ?? "";
+      // A person's request ("make it warmer"): change the current piece visibly, so
+      // the before-and-after view has something to show offline, for any piece.
+      const note = /Reviewer's request: (.+)/.exec(prompt)?.[1];
+      // The piece is pretty-printed JSON; its closing brace is the only "}" at the start of a line.
+      const current = /Current version \(JSON\):\n(\{[\s\S]*?\n\})\n/.exec(prompt)?.[1];
+      if (note && current) return offlineRewrite(JSON.parse(current), note);
       const revised = fixed[id];
       if (revised) return structuredClone(revised);
       throw new Error(`Mock has no revised version of ${id}.`);
@@ -308,3 +314,20 @@ export function mockImage(aspectRatio: "1:1" | "4:5" | "16:9"): { bytes: Uint8Ar
 }
 
 export const mockFixtures = { research, plan, draft, fixed, aiFindings };
+
+/** The longest text in the piece gets a labelled sentence, so the change is easy to spot. */
+function offlineRewrite(piece: Record<string, unknown>, note: string): Record<string, unknown> {
+  const out = structuredClone(piece);
+  let best: { obj: Record<string, unknown> | unknown[]; key: string | number; len: number } | null = null;
+  const walk = (obj: Record<string, unknown> | unknown[]) => {
+    for (const [k, v] of Object.entries(obj)) {
+      if (k === "factIds") continue;
+      if (typeof v === "string" && v.length > (best?.len ?? 0)) best = { obj, key: Array.isArray(obj) ? Number(k) : k, len: v.length };
+      else if (v && typeof v === "object") walk(v as Record<string, unknown>);
+    }
+  };
+  walk(out);
+  const target = best as { obj: Record<string, unknown>; key: string } | null;
+  if (target) target.obj[target.key] = `${target.obj[target.key] as string} (Offline sample rewrite: ${note.trim()}.)`;
+  return out;
+}

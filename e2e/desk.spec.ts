@@ -71,3 +71,31 @@ test("no page scrolls sideways", async ({ page }) => {
     expect(overflow, `sideways overflow on ${path}`).toBeLessThanOrEqual(0);
   }
 });
+
+test("after a rewrite the reviewer sees what changed and can go back", async ({ page }) => {
+  await newPack(page);
+  await page.getByRole("tab", { name: /^LinkedIn post/ }).click();
+  const proof = page.locator(".sheet .proof").first();
+  const original = await proof.innerText();
+
+  await page.getByRole("button", { name: "Ask the agent to rewrite" }).click();
+  await page.getByLabel(/What should change/).fill("Make it warmer");
+  await page.getByRole("button", { name: "Rewrite this piece" }).click();
+  const changes = page.getByRole("region", { name: "What the rewrite changed" });
+  // Offline, the rewrite adds a labelled sentence; the panel shows it as added text.
+  await expect(changes.locator("ins", { hasText: "Offline sample rewrite: Make it warmer" })).toBeVisible();
+  await expect.poll(() => proof.innerText()).not.toBe(original);
+
+  await changes.getByRole("button", { name: "Go back to the previous version" }).click();
+  await expect(changes).toBeHidden();
+  await expect.poll(() => proof.innerText()).toBe(original);
+});
+
+test("a piece fixed by self-revision can be compared with its first draft", async ({ page }) => {
+  await newPack(page);
+  await page.getByRole("tab", { name: /^LinkedIn post/ }).click();
+  await page.getByRole("button", { name: /Compare with the first draft/ }).click();
+  const changes = page.getByRole("region", { name: "What self-revision changed" });
+  // The sample's first draft had an invented "70%"; self-revision removed it.
+  await expect(changes.locator("del", { hasText: "70%" })).toBeVisible();
+});
