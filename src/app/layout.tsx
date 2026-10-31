@@ -11,9 +11,16 @@ export const metadata: Metadata = {
   description: "Research a topic, draft a reviewed content pack and a matching image for HireLoop.",
 };
 
+const THEME_SCRIPT = `try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en-IN" className={`${sans.variable} ${serif.variable}`}>
+    // suppressHydrationWarning: the script below sets data-theme before React loads.
+    <html lang="en-IN" className={`${sans.variable} ${serif.variable}`} suppressHydrationWarning>
+      <head>
+        {/* Apply a saved light/dark choice before the first paint, so the page doesn't flash. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body>{children}</body>
     </html>
   );

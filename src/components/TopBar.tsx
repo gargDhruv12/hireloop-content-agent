@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ThemeToggle } from "./ThemeToggle";
 
 export function TopBar({ title, mock, notice }: { title?: string; mock: boolean; notice?: string | null }) {
   return (
@@ -29,6 +30,7 @@ export function TopBar({ title, mock, notice }: { title?: string; mock: boolean;
               Offline sample mode
             </span>
           )}
+          <ThemeToggle />
           {title ? (
             <Link className="btn btn--night" href="/">
               New pack
