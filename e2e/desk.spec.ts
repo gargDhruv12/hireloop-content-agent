@@ -99,3 +99,29 @@ test("a piece fixed by self-revision can be compared with its first draft", asyn
   // The sample's first draft had an invented "70%"; self-revision removed it.
   await expect(changes.locator("del", { hasText: "70%" })).toBeVisible();
 });
+
+test("all packs: search finds a pack, archive hides it from the home page, restore brings it back", async ({ page }) => {
+  await newPack(page);
+  const packUrl = new URL(page.url()).pathname;
+
+  await page.goto("/packs");
+  await page.getByLabel("Search packs by topic").fill("first-round BPOs");
+  const row = page.locator(".packrow").filter({ has: page.locator(`a[href="${packUrl}"]`) });
+  await expect(row).toBeVisible();
+  await page.getByLabel("Search packs by topic").fill("no such topic anywhere");
+  await expect(page.getByText("No packs match.")).toBeVisible();
+  await page.getByLabel("Search packs by topic").fill("");
+
+  await row.getByRole("button", { name: "Archive" }).click();
+  await expect(row).toBeHidden();
+  await page.goto("/");
+  await expect(page.locator(`#recent a[href="${packUrl}"]`)).toHaveCount(0);
+
+  // An archived pack says so, and can be restored from its own page.
+  await page.goto(packUrl);
+  await expect(page.getByText("This pack is archived")).toBeVisible();
+  await page.getByRole("button", { name: "Restore" }).click();
+  await expect(page.getByText("This pack is archived")).toBeHidden();
+  await page.goto("/");
+  await expect(page.locator(`#recent a[href="${packUrl}"]`)).toHaveCount(1);
+});

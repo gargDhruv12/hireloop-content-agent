@@ -15,6 +15,7 @@ export function TopBar({ title, mock, notice }: { title?: string; mock: boolean;
             <a href="#brief">New pack</a>
             <a href="#recent">Recent packs</a>
             <a href="#how">How it works</a>
+            <Link href="/packs">All packs</Link>
           </nav>
         )}
         <span className="topbar__meta">

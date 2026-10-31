@@ -34,17 +34,19 @@ const CHANNELS = [
 ];
 
 export default async function Home() {
-  const all = await listRuns(200);
-  const recent = all.slice(0, 6);
+  const all = await listRuns(1000);
+  // Archived packs stay out of the lists and review counts; their cost still counts as spent.
+  const active = all.filter((r) => !r.archived);
+  const recent = active.slice(0, 6);
   const approvedIn = (r: (typeof all)[number]) => Object.values(r.review).filter((s) => s === "approved").length;
   const spend = all.reduce((sum, r) => sum + (runCost(r)?.inr ?? 0), 0);
   const stats = [
     { label: "Packs written", value: all.length, hint: "Saved on this desk" },
     { label: "Pieces approved", value: all.reduce((n, r) => n + approvedIn(r), 0), hint: "By a person, and logged" },
-    { label: "Waiting for review", value: all.filter((r) => approvedIn(r) < TO_APPROVE).length, hint: "Packs not fully approved" },
+    { label: "Waiting for review", value: active.filter((r) => approvedIn(r) < TO_APPROVE).length, hint: "Packs not fully approved" },
     {
       label: "Blocking notes open",
-      value: all.reduce((n, r) => n + r.findings.filter((f) => f.severity === "block").length, 0),
+      value: active.reduce((n, r) => n + r.findings.filter((f) => f.severity === "block").length, 0),
       hint: "Left after self-revision",
     },
     { label: "Spend so far", value: formatInr(spend), hint: "Gemini, at listed prices" },
@@ -149,6 +151,11 @@ export default async function Home() {
                   );
                 })}
               </ul>
+            )}
+            {all.length > 0 && (
+              <Link href="/packs" className="recent__all">
+                Show all packs ({all.length}) →
+              </Link>
             )}
           </aside>
         </section>
