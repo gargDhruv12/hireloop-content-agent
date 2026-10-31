@@ -177,7 +177,7 @@ npm run eval           # runs every case in evals/cases.json against Gemini, wri
 npm run eval:checker   # plants 4 known problems and counts how many the checker catches
 npm run typecheck
 npm run lint           # ESLint with Next's core-web-vitals and TypeScript rules
-npm run build && npm run e2e   # browser tests of the review desk (Playwright), offline, desktop + phone
+npm run build && npm run e2e   # browser tests (Playwright), offline, desktop + phone, incl. axe accessibility scans in both themes
 ```
 
 GitHub Actions (`.github/workflows/ci.yml`) runs lint, typecheck, tests, both offline smoke tests, a production build and the browser tests on every push and pull request. None of them need an API key.

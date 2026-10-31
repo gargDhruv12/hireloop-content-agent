@@ -29,7 +29,7 @@ export function Margin({
 }) {
   const byId = new Map(facts.map((f) => [f.id, f]));
   return (
-    <aside className="margin" aria-label="Notes and sources">
+    <aside className="margin" aria-label="Notes and sources" tabIndex={0}>
       <section>
         <h3>Notes</h3>
         {findings.length === 0 ? (

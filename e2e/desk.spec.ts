@@ -14,7 +14,7 @@ async function newPack(page: Page) {
 test("a pack made from the home page opens on its research", async ({ page }) => {
   await newPack(page);
   await expect(page.getByRole("heading", { level: 1, name: "Research and plan" })).toBeVisible();
-  await expect(page.getByRole("tab", { name: /^Research and plan/ })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab", { name: /^Research & plan/ })).toHaveAttribute("aria-selected", "true");
 });
 
 test("tabs switch pieces by click and by arrow key, and the URL follows", async ({ page }) => {

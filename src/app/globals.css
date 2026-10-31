@@ -12,7 +12,7 @@
   --paper: #ffffff;
   --ink: #16142e;
   --graphite: #5d5b74;
-  --faint: #8d8ba3;
+  --faint: #66647e; /* 4.5:1+ on white and lavender: it's used for small text */
   --rule: #e3e1ef;
   --rule-strong: #c9c5dd;
 
@@ -42,6 +42,8 @@
   --warn-ink: #6b5400;
   --traced: #1f7a4d;
   --traced-wash: #e7f4ec;
+  /* Fill behind white text (Approve): deep enough for 4.5:1 in both themes. */
+  --approve: #1f7a4d;
 
   --serif: var(--font-serif), "Source Serif 4", Georgia, serif;
   --sans: var(--font-sans), "Plus Jakarta Sans", system-ui, sans-serif;
@@ -278,8 +280,8 @@ a {
 }
 
 .btn--approve {
-  background: var(--traced);
-  border-color: var(--traced);
+  background: var(--approve);
+  border-color: var(--approve);
   color: #fff;
 }
 
@@ -574,6 +576,10 @@ a {
   display: inline-grid;
   place-items: center;
   font-weight: 600;
+}
+
+.count[data-n]::before {
+  content: attr(data-n);
 }
 
 .count--block {
@@ -947,7 +953,7 @@ a {
 .counter {
   font-family: var(--sans);
   font-size: 12px;
-  color: var(--faint);
+  color: var(--graphite);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -2957,7 +2963,7 @@ a {
   --paper: #1a1833;
   --ink: #ecebf7;
   --graphite: #b4b1cc;
-  --faint: #8a87a8;
+  --faint: #a9a6c6;
   --rule: #2c2950;
   --rule-strong: #433f70;
   --client-wash: rgba(143, 124, 245, 0.16);
@@ -2984,7 +2990,7 @@ a {
   --paper: #ffffff;
   --ink: #16142e;
   --graphite: #5d5b74;
-  --faint: #8d8ba3;
+  --faint: #66647e; /* 4.5:1+ on white and lavender: it's used for small text */
   --rule: #e3e1ef;
   --rule-strong: #c9c5dd;
   --client-ink: #5b45d0;
@@ -3013,7 +3019,7 @@ a {
   --paper: #1a1833;
   --ink: #ecebf7;
   --graphite: #b4b1cc;
-  --faint: #8a87a8;
+  --faint: #a9a6c6;
   --rule: #2c2950;
   --rule-strong: #433f70;
   --client-wash: rgba(143, 124, 245, 0.16);
@@ -3040,7 +3046,7 @@ a {
   --paper: #ffffff;
   --ink: #16142e;
   --graphite: #5d5b74;
-  --faint: #8d8ba3;
+  --faint: #66647e; /* 4.5:1+ on white and lavender: it's used for small text */
   --rule: #e3e1ef;
   --rule-strong: #c9c5dd;
   --client-ink: #5b45d0;

@@ -248,7 +248,7 @@ export function Desk({
 
   const total = pieces.length + 1;
   const groups: TabGroup[] = [
-    { label: "Overview", tabs: [{ id: "research", label: "Research & plan", name: "Research and plan" }] },
+    { label: "Overview", tabs: [{ id: "research", label: "Research & plan", name: "Research & plan" }] },
     ...CHANNEL_GROUPS.map((g) => ({
       label: g.label,
       tabs: pieces
@@ -500,7 +500,7 @@ export function Desk({
             onSelect={setActive}
           />
         ) : (
-          <aside className="margin" aria-label="About this run" key={`margin-${view}`}>
+          <aside className="margin" aria-label="About this run" tabIndex={0} key={`margin-${view}`}>
             <section>
               <h3>Brief</h3>
               <p style={{ fontFamily: "var(--serif)", fontSize: 17, margin: 0 }}>{run.input.topic}</p>
@@ -705,17 +705,14 @@ function PackBar({
                   tabIndex={view === t.id ? 0 : -1}
                   onClick={() => onGo(t.id)}
                 >
-                  {t.id !== "research" && <span key={t.status} className="status-dot" data-status={t.status ?? "pending"} aria-label={t.status ?? "pending"} />}
+                  {t.id !== "research" && <span key={t.status} className="status-dot" data-status={t.status ?? "pending"} aria-hidden />}
                   <span>{t.label}</span>
+                  {/* Badge numbers are drawn by CSS, not text: the tab's label stays "Instagram", and its spoken name says the count. */}
                   {t.counts && t.counts.block > 0 && (
-                    <span className="count count--block" title={`${t.counts.block} blocking`}>
-                      {t.counts.block}
-                    </span>
+                    <span className="count count--block" data-n={t.counts.block} aria-hidden title={`${t.counts.block} blocking`} />
                   )}
                   {t.counts && t.counts.warn > 0 && (
-                    <span className="count count--warn" title={`${t.counts.warn} to consider`}>
-                      {t.counts.warn}
-                    </span>
+                    <span className="count count--warn" data-n={t.counts.warn} aria-hidden title={`${t.counts.warn} to consider`} />
                   )}
                 </button>
               ))}
@@ -727,6 +724,7 @@ function PackBar({
   );
 }
 
+/** The tab's full spoken name; its dot and badges are hidden from screen readers because this says it all. */
 function tabName(t: Tab): string {
   const parts = [t.name];
   if (t.id !== "research") parts.push(t.status === "approved" ? "approved" : t.status === "changes" ? "needs changes" : "waiting for review");
