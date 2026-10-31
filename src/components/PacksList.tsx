@@ -35,7 +35,7 @@ export function PacksList({ rows }: { rows: PackRow[] }) {
   }, [rows, query, filter]);
 
   return (
-    <div className="packs glass">
+    <div className="packs panel">
       <div className="packs__tools">
         <label className="visually-hidden" htmlFor="pack-search">
           Search packs by topic
