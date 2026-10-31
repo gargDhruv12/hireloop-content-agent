@@ -3,15 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { RunEvent, StepName } from "@/lib/content/types";
-
-const STEPS: { name: StepName; label: string; what: string }[] = [
-  { name: "research", label: "Research", what: "Reads the link and the client site, pulls out facts" },
-  { name: "plan", label: "Plan", what: "Picks one audience, angle and the facts to lean on" },
-  { name: "write", label: "Write", what: "Drafts all 10 pieces and an image brief" },
-  { name: "check", label: "Check", what: "Rules check + a separate AI reviewer" },
-  { name: "revise", label: "Revise", what: "Rewrites pieces with blocking problems, once" },
-  { name: "image", label: "Image", what: "Turns the brief into a picture" },
-];
+import { RunProgress, STEPS, type FeedLine, type StepState } from "./RunProgress";
 
 const EXAMPLES = [
   "Slow first-round interviews are costing BPOs their best applicants",
@@ -19,7 +11,6 @@ const EXAMPLES = [
   "Hiring in Tamil, Telugu and Bengali: first rounds in a candidate's own language",
 ];
 
-type StepState = { status: "waiting" | "running" | "done" | "skipped" | "failed"; detail?: string };
 
 export function BriefForm({ audiences }: { audiences: string[] }) {
   const router = useRouter();
@@ -30,10 +21,19 @@ export function BriefForm({ audiences }: { audiences: string[] }) {
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [steps, setSteps] = useState<Record<StepName, StepState> | null>(null);
+  const [done, setDone] = useState(false);
+  const [feed, setFeed] = useState<FeedLine[]>([]);
 
-  async function start(e: React.FormEvent) {
+  function start(e: React.FormEvent) {
     e.preventDefault();
+    void run();
+  }
+
+  async function run() {
     setError(null);
+    setDone(false);
+    setFeed([]);
+    let feedId = 0;
     setRunning(true);
     setSteps(Object.fromEntries(STEPS.map((s) => [s.name, { status: "waiting" }])) as Record<StepName, StepState>);
 
@@ -70,9 +70,15 @@ export function BriefForm({ audiences }: { audiences: string[] }) {
           } catch {
             continue; // a garbled progress line shouldn't stop the run
           }
+          if (event.type === "step" && event.detail) {
+            const text = event.detail;
+            const step = STEPS.find((s) => s.name === event.step)?.label ?? event.step;
+            setFeed((f) => (f[0]?.text === text ? f : [{ id: ++feedId, step, text }, ...f].slice(0, 4)));
+          }
           if (event.type === "step") {
             setSteps((prev) => prev && { ...prev, [event.step]: { status: event.status, detail: event.detail ?? prev[event.step].detail } });
           } else if (event.type === "done") {
+            setDone(true);
             router.push(`/runs/${event.runId}`);
             return;
           } else if (event.type === "error") {
@@ -151,26 +157,7 @@ export function BriefForm({ audiences }: { audiences: string[] }) {
         <textarea id="notes" className="textarea" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} disabled={running} />
       </div>
 
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
 
-      {steps && (
-        <ol className="progress" aria-live="polite">
-          {STEPS.map((s) => (
-            <li key={s.name} data-status={steps[s.name].status}>
-              <span className="progress__mark" aria-hidden />
-              <span className="progress__name">{s.label}</span>
-              <span className="progress__detail">
-                {steps[s.name].status === "skipped" ? "Skipped: " : ""}
-                {steps[s.name].detail ?? s.what}
-              </span>
-            </li>
-          ))}
-        </ol>
-      )}
 
       <div className="brief__actions">
         <button className="btn btn--primary" type="submit" disabled={running || topic.trim().length < 5}>
@@ -178,6 +165,20 @@ export function BriefForm({ audiences }: { audiences: string[] }) {
         </button>
         <span className="brief__note">Takes about a minute. Nothing is posted anywhere.</span>
       </div>
+      {steps && (
+        <RunProgress
+          topic={topic}
+          steps={steps}
+          feed={feed}
+          error={error}
+          done={done}
+          onRetry={() => void run()}
+          onEdit={() => {
+            setSteps(null);
+            setError(null);
+          }}
+        />
+      )}
     </form>
   );
 }

@@ -2395,6 +2395,287 @@ a {
   }
 }
 
+/* ── Run progress: the minute while a pack is written ───────────── */
+
+.runprog {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(22, 20, 46, 0.32);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  animation: fade-in 0.3s ease backwards;
+}
+
+.runprog__panel {
+  width: min(100%, 760px);
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  display: grid;
+  gap: 20px;
+  padding: 28px;
+  border-radius: 28px;
+  background:
+    radial-gradient(420px 220px at 100% 0%, rgba(143, 124, 245, 0.22), transparent 70%),
+    var(--glass-strong);
+  border: 1px solid var(--glass-edge);
+  box-shadow: var(--shadow-lift);
+  outline: none;
+  animation: panel-in 0.5s cubic-bezier(0.34, 1.36, 0.5, 1) backwards;
+}
+
+.runprog__head {
+  display: grid;
+  gap: 10px;
+}
+
+.runprog__head h2 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  font-weight: 800;
+}
+
+.runprog__meta {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  color: var(--graphite);
+  font-size: 13.5px;
+}
+
+.runprog__time {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.runprog__bar {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--client-wash);
+  overflow: hidden;
+}
+
+.runprog__bar span {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #8f7cf5, var(--client), #8f7cf5);
+  background-size: 200% 100%;
+  transition: width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: shimmer 1.6s linear infinite;
+}
+
+.runprog__panel[data-state="failed"] .runprog__bar span {
+  background: var(--block);
+  animation: none;
+}
+
+.runprog__panel[data-state="done"] .runprog__bar span {
+  background: var(--traced);
+  animation: none;
+}
+
+/* The six steps as connected cards */
+.runprog__steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.runstep {
+  position: relative;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 14px;
+  border-radius: 18px;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  color: var(--faint);
+  transition:
+    border-color 0.3s ease,
+    box-shadow 0.3s ease,
+    color 0.3s ease,
+    transform 0.3s ease;
+  animation: rise-in 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+  animation-delay: calc(0.1s + var(--i, 0) * 0.06s);
+}
+
+.runstep b {
+  display: block;
+  font-size: 14.5px;
+}
+
+.runstep__detail {
+  display: block;
+  font-size: 12.5px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  animation: rise-in 0.35s ease backwards;
+}
+
+.runstep__mark {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  border: 1.5px solid var(--rule-strong);
+  font-size: 13px;
+  font-weight: 800;
+  transition:
+    background 0.3s ease,
+    border-color 0.3s ease,
+    color 0.3s ease;
+}
+
+.runstep[data-status="running"] {
+  color: var(--ink);
+  border-color: #cfc6ff;
+  box-shadow: 0 0 0 4px rgba(91, 69, 208, 0.1), var(--shadow-soft);
+  transform: translateY(-2px);
+}
+
+.runstep[data-status="running"] .runstep__mark {
+  border-color: var(--client);
+  color: var(--client);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.runstep[data-status="done"],
+.runstep[data-status="skipped"] {
+  color: var(--ink);
+}
+
+.runstep[data-status="done"] .runstep__mark {
+  background: var(--traced);
+  border-color: var(--traced);
+  color: #fff;
+  animation: pop 0.45s cubic-bezier(0.34, 1.36, 0.5, 1);
+}
+
+.runstep[data-status="skipped"] .runstep__mark {
+  border-style: dashed;
+}
+
+.runstep[data-status="failed"] {
+  color: var(--ink);
+  border-color: var(--block);
+}
+
+.runstep[data-status="failed"] .runstep__mark {
+  background: var(--block);
+  border-color: var(--block);
+  color: #fff;
+}
+
+.runprog__feed {
+  list-style: none;
+  margin: 0;
+  padding: 12px 14px;
+  display: grid;
+  gap: 4px;
+  border-radius: 16px;
+  background: var(--night);
+  color: var(--night-faint);
+  font-size: 12.5px;
+}
+
+.runprog__feed li {
+  animation: rise-in 0.3s ease backwards;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.runprog__feed li:first-child {
+  color: #fff;
+}
+
+.runprog__feed b {
+  color: #c3b8ff;
+  margin-right: 6px;
+}
+
+.runprog__error {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--block-wash);
+  border-left: 4px solid var(--block);
+}
+
+.runprog__error p {
+  margin: 0;
+}
+
+.runprog__error div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.runprog__note {
+  margin: 0;
+  font-size: 13px;
+  color: var(--faint);
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.97);
+  }
+}
+
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes pulse {
+  50% {
+    box-shadow: 0 0 0 6px rgba(91, 69, 208, 0.16);
+  }
+}
+
+@media (max-width: 860px) {
+  .runprog {
+    padding: 10px;
+    place-items: end center;
+  }
+  .runprog__panel {
+    padding: 20px 16px;
+    border-radius: 24px;
+    max-height: calc(100vh - 20px);
+  }
+  .runprog__steps {
+    grid-template-columns: 1fr 1fr;
+  }
+  .runprog__head h2 {
+    font-size: 19px;
+  }
+}
+
 /* ── Small screens ───────────────────────────────────────────────── */
 
 @media (max-width: 860px) {
