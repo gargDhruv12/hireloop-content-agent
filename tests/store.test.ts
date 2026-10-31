@@ -65,7 +65,10 @@ for (const [name, make] of backends) {
         await store.saveRun(sampleRun("mid-run-cc", "2026-10-29T10:00:00.000Z"));
         const list = await store.listRuns(2);
         assert.deepEqual(list.map((r) => r.id), ["new-run-bb", "mid-run-cc"]);
-        assert.deepEqual(Object.keys(list[0]).sort(), ["createdAt", "findings", "id", "input", "review"]);
+        assert.deepEqual(Object.keys(list[0]).sort(), ["createdAt", "findings", "hadImage", "id", "input", "models", "review", "usage"]);
+        // Enough for the home page's cost total, without loading the drafts.
+        assert.equal(list[0].hadImage, false);
+        assert.equal(list[0].models.text, "t");
         assert.equal(list[0].input.topic, "Topic for new-run-bb");
       } finally {
         cleanup();

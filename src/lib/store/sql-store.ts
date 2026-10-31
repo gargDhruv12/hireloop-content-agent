@@ -94,8 +94,18 @@ export function createSqlStore(db: SqlClient): RunStore {
     // Only the fields the list shows; the drafts themselves stay in the database.
     async listRuns(limit) {
       await migrate();
-      const rows = await db.query<{ id: string; created_at: string; input: unknown; findings: unknown; review: unknown }>(
-        `select id, data->>'createdAt' as created_at, data->'input' as input, data->'findings' as findings, data->'review' as review
+      const rows = await db.query<{
+        id: string;
+        created_at: string;
+        input: unknown;
+        findings: unknown;
+        review: unknown;
+        usage: unknown;
+        models: unknown;
+        had_image: boolean;
+      }>(
+        `select id, data->>'createdAt' as created_at, data->'input' as input, data->'findings' as findings, data->'review' as review,
+                data->'usage' as usage, data->'models' as models, (data->'image') is not null and data->'image' <> 'null'::jsonb as had_image
          from hl_runs order by created_at desc limit $1`,
         [limit],
       );
@@ -106,6 +116,9 @@ export function createSqlStore(db: SqlClient): RunStore {
           input: json(r.input),
           findings: json(r.findings) ?? [],
           review: json(r.review) ?? {},
+          usage: json(r.usage) ?? undefined,
+          models: json(r.models),
+          hadImage: !!r.had_image,
         }),
       );
     },

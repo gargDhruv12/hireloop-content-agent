@@ -9,34 +9,38 @@ import { Output, generateText, stepCountIs, tool } from "ai";
 import { z } from "zod";
 import { fetchPage, type PageText } from "@/lib/web/fetch-page";
 import { assertConfigured, isMock, models } from "./models";
+import type { Usage } from "@/lib/content/types";
 import { mockImage, mockStructured, type MockTask } from "./mock";
 
-export interface Usage {
-  inputTokens: number;
-  outputTokens: number;
-}
+export type { Usage };
 
 // Process-wide total (the eval runner reports it) plus a per-run counter:
 // trackUsage() gives each pipeline run its own, even when runs overlap.
-const usageTotals: Usage = { inputTokens: 0, outputTokens: 0 };
+const emptyUsage = (): Usage => ({ inputTokens: 0, outputTokens: 0, byModel: {}, images: 0 });
+const usageTotals: Usage = emptyUsage();
 const runUsage = new AsyncLocalStorage<Usage>();
 
 export function readUsage(): Usage {
-  return { ...usageTotals };
+  return { ...usageTotals, byModel: { ...usageTotals.byModel } };
 }
 
 /** Run `fn` and count only the tokens its model calls use. */
 export async function trackUsage<T>(fn: () => Promise<T>): Promise<{ result: T; usage: Usage }> {
-  const usage: Usage = { inputTokens: 0, outputTokens: 0 };
+  const usage = emptyUsage();
   const result = await runUsage.run(usage, fn);
   return { result, usage };
 }
 
-function addUsage(u: { inputTokens?: number; outputTokens?: number } | undefined) {
+/** Counted per model, because models are priced differently (see pricing.ts). */
+function addUsage(modelId: string, u: { inputTokens?: number; outputTokens?: number } | undefined, images = 0) {
   for (const total of [usageTotals, runUsage.getStore()]) {
     if (!total) continue;
     total.inputTokens += u?.inputTokens ?? 0;
     total.outputTokens += u?.outputTokens ?? 0;
+    const m = ((total.byModel ??= {})[modelId] ??= { inputTokens: 0, outputTokens: 0 });
+    m.inputTokens += u?.inputTokens ?? 0;
+    m.outputTokens += u?.outputTokens ?? 0;
+    total.images = (total.images ?? 0) + images;
   }
 }
 
@@ -101,7 +105,7 @@ export async function generateStructured<S extends z.ZodType>(opts: {
         maxRetries,
         providerOptions: thinkingOptions(modelId),
       });
-      addUsage(result.usage);
+      addUsage(modelId, result.usage);
       return result.output as z.infer<S>;
     });
   } catch (err) {
@@ -190,7 +194,7 @@ export async function browseClientSite(opts: {
       system: `You research a client's website for a content writer. The home page is already read. Open at most ${maxPages - 1} more pages from the list that are most relevant to the topic (for example pricing, fairness or how-it-works pages). When done, reply with one line: which pages you read and why.`,
       prompt: `Client site: ${opts.siteUrl}\nTopic: ${opts.topic}\n\nPages you can open:\n${subpages.slice(0, 25).join("\n")}`,
     });
-    addUsage(result.totalUsage ?? result.usage);
+    addUsage(models.text, result.totalUsage ?? result.usage);
   } catch (err) {
     // Reading the site is a bonus: if it fails the client profile still applies.
     errors.push({ url: opts.siteUrl, error: friendly(err, "browse").message });
@@ -219,7 +223,7 @@ export async function generateImage(opts: {
         },
       },
     });
-    addUsage(result.usage);
+    addUsage(models.image, result.usage, 1);
     const file = result.files.find((f) => f.mediaType.startsWith("image/"));
     if (!file) {
       throw new Error(

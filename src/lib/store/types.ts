@@ -1,7 +1,9 @@
 import type { Run } from "@/lib/content/types";
 
 /** What the home page's "Recent packs" list needs, without loading whole packs. */
-export type RunSummary = Pick<Run, "id" | "createdAt" | "input" | "findings" | "review">;
+export type RunSummary = Pick<Run, "id" | "createdAt" | "input" | "findings" | "review" | "usage" | "models"> & {
+  hadImage: boolean;
+};
 
 /**
  * Where runs and their images live. The file store is for one machine; the

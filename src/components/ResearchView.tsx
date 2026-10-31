@@ -1,4 +1,5 @@
 import type { Run } from "@/lib/content/types";
+import { formatInr, type Cost } from "@/lib/ai/pricing";
 
 const STEP_LABEL: Record<string, string> = {
   research: "Research",
@@ -10,7 +11,7 @@ const STEP_LABEL: Record<string, string> = {
 };
 
 /** What the agent read, what it decided, and how long each step took. */
-export function ResearchView({ run }: { run: Run }) {
+export function ResearchView({ run, cost }: { run: Run; cost?: Cost | null }) {
   const { research, plan } = run;
   const relevant = research.facts.filter((f) => f.relevant);
   const other = research.facts.filter((f) => !f.relevant);
@@ -141,6 +142,18 @@ export function ResearchView({ run }: { run: Run }) {
                 <td>Tokens</td>
                 <td>
                   {run.usage.inputTokens.toLocaleString("en-IN")} in · {run.usage.outputTokens.toLocaleString("en-IN")} out
+                </td>
+              </tr>
+            )}
+            {cost && (
+              <tr>
+                <td>Cost</td>
+                <td>
+                  About {formatInr(cost.inr)} (${cost.usd.toFixed(3)}){cost.estimatedFromTotals ? ", estimated from total tokens" : ""}
+                  {cost.unpriced.length > 0 && <>. Not counted: {cost.unpriced.join(", ")} (no price on file)</>}
+                  <span style={{ display: "block", fontSize: 12.5, color: "var(--faint)" }}>
+                    Google&apos;s listed prices for the date of this run, at ₹{cost.rate}/$.
+                  </span>
                 </td>
               </tr>
             )}
