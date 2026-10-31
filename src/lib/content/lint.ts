@@ -213,32 +213,92 @@ function similarityChecks(pack: ContentPack): Omit<Finding, "id">[] {
 
 export interface NumberToken {
   raw: string;
+  /**
+   * Comparable form. Durations are converted to hours with an "h" suffix, so
+   * "two days" and "48 hours" are both "48h". Lakh, crore and k are scaled
+   * ("₹2.5 lakh" is "250000"), percentages end in "%".
+   */
   value: string;
-  /** Money, percentages and time savings are the claims that hurt most when invented. */
+  /** Money, percentages and durations are the claims that hurt most when invented. */
   strong: boolean;
 }
 
 const NUMBER_RE =
   /(?:₹|rs\.?\s?|inr\s?)?\d+(?:,\d{2,3})*(?:\.\d+)?(?:\s?(?:×|x|\/)\s?7)?(?:\s?%|\s?(?:percent|lakh|crore|k)\b)?/gi;
 
-export function extractNumbers(text: string): NumberToken[] {
-  const tokens: NumberToken[] = [];
-  for (const m of text.matchAll(NUMBER_RE)) {
-    const raw = m[0].trim();
+const WORDS: Record<string, number> = {
+  zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+  eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19,
+  twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90, hundred: 100,
+};
+const WORD = Object.keys(WORDS).join("|");
+const HOURS: Record<string, number> = { min: 1 / 60, hour: 1, hr: 1, day: 24, week: 168, month: 730, year: 8760 };
+
+/**
+ * "48 hours", "48-hour", "two days", "twenty-four hours", "10-minute". A number
+ * word only counts next to a unit: "three ways" is counting, not a claim; and
+ * "a week" is left alone because "15 hours a week" is a rate.
+ */
+const DURATION_RE = new RegExp(
+  String.raw`\b(\d+(?:\.\d+)?|(?:${WORD})(?:[\s-](?:${WORD}))?)[\s-]?(min(?:ute)?s?|hours?|hrs?|days?|weeks?|months?|years?)\b`,
+  "gi",
+);
+
+function wordNumber(s: string): number {
+  if (/^\d/.test(s)) return Number(s);
+  return s
+    .toLowerCase()
+    .split(/[\s-]/)
+    .reduce((n, w) => (w === "hundred" ? (n || 1) * 100 : n + (WORDS[w] ?? NaN)), 0);
+}
+
+function durationValue(amount: string, unit: string): string {
+  const key = unit.toLowerCase().replace(/s$/, "").replace(/^minute$/, "min").replace(/^mins?$/, "min");
+  const hours = wordNumber(amount) * (HOURS[key] ?? NaN);
+  return Number.isFinite(hours) ? `${Math.round(hours * 10000) / 10000}h` : "";
+}
+
+/** Every number in the text, including small ones; `extractNumbers` decides which are claims. */
+type Token = NumberToken & { small: boolean; start: number; plain?: string };
+
+function numberTokens(text: string): Token[] {
+  const out: Token[] = [];
+  const spans: [number, number][] = [];
+
+  for (const m of text.matchAll(DURATION_RE)) {
+    const value = durationValue(m[1], m[2]);
+    if (!value) continue;
     const start = m.index ?? 0;
+    spans.push([start, start + m[0].length]);
+    out.push({ raw: m[0], value, strong: true, small: false, start, plain: String(wordNumber(m[1])) });
+  }
+
+  for (const m of text.matchAll(NUMBER_RE)) {
+    const start = m.index ?? 0;
+    if (spans.some(([a, b]) => start >= a && start < b)) continue;
+    const raw = m[0].trim();
     // Skip digits glued to letters (e.g. "B2B", "H1", "DPDP2023" is fine either way).
-    const before = text[start - 1] ?? "";
-    if (/[A-Za-z]/.test(before)) continue;
-    const value = normaliseNumber(raw);
+    if (/[A-Za-z]/.test(text[start - 1] ?? "")) continue;
+    let value = normaliseNumber(raw);
     if (!value) continue;
     const isMoney = /₹|rs|inr|lakh|crore/i.test(raw);
-    const isPercent = /%|percent/i.test(raw);
+    // In a range ("20–25%", "20 to 25 percent") the first number is a percentage too.
+    const rangeOfPercent = /^\s?(?:–|—|-|to)\s?\d+(?:\.\d+)?\s?(?:%|percent)/i.test(text.slice(start + m[0].length));
+    if (rangeOfPercent && !value.endsWith("%")) value += "%";
+    const isPercent = /%|percent/i.test(raw) || rangeOfPercent;
     const n = Number(value.replace(/[^\d.]/g, ""));
     // Small counting numbers ("3 ways", "Post 2") are not claims.
-    if (!isMoney && !isPercent && !value.includes("x7") && n <= 10 && !value.includes(".")) continue;
-    tokens.push({ raw, value, strong: isMoney || isPercent });
+    const small = !isMoney && !isPercent && !value.includes("x7") && n <= 10 && !value.includes(".");
+    out.push({ raw, value, strong: isMoney || isPercent, small, start });
   }
-  return tokens;
+
+  return out.sort((a, b) => a.start - b.start);
+}
+
+export function extractNumbers(text: string): NumberToken[] {
+  return numberTokens(text)
+    .filter((t) => !t.small)
+    .map((t) => ({ raw: t.raw, value: t.value, strong: t.strong }));
 }
 
 export function normaliseNumber(raw: string): string {
@@ -248,17 +308,20 @@ export function normaliseNumber(raw: string): string {
   const num = digits.match(/\d+(?:\.\d+)?/);
   if (!num) return "";
   const pct = /%|percent/.test(s) ? "%" : "";
-  return num[0] + pct;
+  // "₹2.5 lakh" and "₹2,50,000" are the same amount; "2.5" on its own is not.
+  const scale = /lakh/.test(s) ? 1e5 : /crore/.test(s) ? 1e7 : /\d(?:k)$/.test(s) ? 1e3 : 1;
+  const value = scale === 1 ? num[0] : String(Math.round(Number(num[0]) * scale));
+  return value + pct;
 }
 
 export function numbersInFacts(facts: Pick<Fact, "text">[]): Set<string> {
   const set = new Set<string>();
   for (const f of facts) {
-    for (const m of f.text.matchAll(NUMBER_RE)) {
-      const v = normaliseNumber(m[0]);
-      if (!v) continue;
-      set.add(v);
-      set.add(v.replace("%", ""));
+    for (const t of numberTokens(f.text)) {
+      set.add(t.value);
+      // A unit-less "48" in a draft still traces to "48 hours"; "48 days" does not (durations compare in hours).
+      if (t.plain) set.add(t.plain);
+      if (t.value.endsWith("%")) set.add(t.value.slice(0, -1));
     }
   }
   return set;
