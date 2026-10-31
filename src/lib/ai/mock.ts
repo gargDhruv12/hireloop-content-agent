@@ -38,7 +38,7 @@ The first round is where high-volume hiring quietly leaks talent. Not because re
 
 ## Where the days go
 
-Most first rounds follow the same steps: shortlist from the job portal, call to schedule, reschedule when the candidate is at their current job, run a 15-minute conversation, write notes, repeat. Multiply that by a few hundred applicants a week and the calendar fills up before anyone gets interviewed.
+Most first rounds follow the same steps: shortlist from the job portal, call to schedule, reschedule when the candidate is at their current job, run a short conversation, write notes, repeat. Multiply that by a few hundred applicants a week and the calendar fills up before anyone gets interviewed.
 
 Candidates feel that delay. Many of the people applying for support roles are already working shifts. Their free time is late evening, which is exactly when your recruiters have gone home.
 
@@ -99,7 +99,7 @@ See what your candidates would experience: try a 10-minute sample AI interview.`
   xThread: {
     posts: [
       "Strong applicants for support roles rarely wait a week for a first-round call. Here's what high-volume hiring teams can change. 🧵",
-      "1/ The delay isn't recruiter effort. It's maths: scheduling, rescheduling and 15-minute calls, a few hundred times a week.",
+      "1/ The delay isn't recruiter effort. It's maths: scheduling, rescheduling and short calls, a few hundred times a week.",
       "2/ Candidates are often working shifts. Their free time is late evening. Let them interview by voice or video then, even at 11 PM.",
       "3/ Let them answer in their own language. HireLoop runs first rounds in 9 Indian languages, from Hindi and Tamil to Bengali.",
       "4/ Keep people in charge. Your rubric scores every answer; recruiters read the transcript and choose who moves on. The AI only recommends.",

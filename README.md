@@ -225,7 +225,7 @@ Add the Friday shared link to the `shared-news-link` case's `sourceUrl` before t
 - **Pages that need JavaScript or a login can't be read.** The page reader fetches plain HTML. Paste the article text into the notes box instead; the run will say when a link failed.
 - **Topic-only runs don't search the web.** Without a link, the agent writes from the client fact sheet alone. This is deliberate: it can't cite what it didn't read.
 - **The checker is not a guarantee.** The rules only catch what they're written for, and the AI reviewer can miss a claim or flag a fine one. That's why a person approves everything.
-- **Number tracing is literal.** "Two days" won't be matched against "48 hours", and small counting numbers (1–10) are ignored.
+- **Number tracing knows units, not meaning.** Durations compare in hours ("two days" = "48 hours", but "15-minute" ≠ "15 hours"), and lakh, crore and k are scaled. It can't tell that "about two days" is a rounding of "45 hours", and bare counting numbers (1–10, "three ways") are ignored.
 - **Images can still drift**: odd hands, text in the frame, or a scene that doesn't fit India. Regenerate, or edit the brief.
 - **Images are stored in Postgres as bytes.** Fine for a team's volume (a few MB per pack); at large scale, move `saveImage`/`readImage` in `sql-store.ts` to object storage.
 - **The run limit counts by address.** With `DATABASE_URL` it is shared by every server instance; without it, it is per process. It stops a runaway script, not someone rotating addresses. Keep a spend cap in Google AI Studio too.
