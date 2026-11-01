@@ -9,7 +9,7 @@ import { expect, test, type Page } from "@playwright/test";
 const TOPIC = "Slow first-round interviews are costing BPOs their best applicants";
 
 async function newPack(page: Page) {
-  await page.goto("/");
+  await page.goto("/new");
   await page.getByLabel("Topic").fill(TOPIC);
   await page.getByRole("button", { name: "Write the content pack" }).click();
   await page.waitForURL(/\/runs\/[a-z0-9-]+/);
@@ -28,10 +28,12 @@ for (const scheme of ["light", "dark"] as const) {
   test.describe(`${scheme} theme`, () => {
     test.use({ colorScheme: scheme });
 
-    test("home, all packs and a pack's pages pass axe", async ({ page }) => {
+    test("home, new pack, all packs and a pack's pages pass axe", async ({ page }) => {
       const pack = await newPack(page);
       await page.goto("/");
       await scan(page, `home (${scheme})`);
+      await page.goto("/new");
+      await scan(page, `new pack (${scheme})`);
       await page.goto("/packs");
       await scan(page, `all packs (${scheme})`);
       for (const view of ["research", "blog", "google-1", "image"]) {
@@ -45,7 +47,7 @@ for (const scheme of ["light", "dark"] as const) {
 test("with reduced motion, nothing animates", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   const pack = await newPack(page);
-  for (const path of ["/", pack]) {
+  for (const path of ["/", "/new", pack]) {
     await page.goto(path);
     const running = await page.evaluate(() => document.getAnimations().filter((a) => a.playState === "running").length);
     expect(running, `animations running on ${path}`).toBe(0);

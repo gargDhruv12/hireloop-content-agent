@@ -58,7 +58,8 @@ export function CountUp({ value }: { value: string }) {
       io.disconnect();
       const start = performance.now();
       const tick = (now: number) => {
-        const t = Math.min(1, (now - start) / 900);
+        // rAF can hand over a timestamp from just before start; never count below zero.
+        const t = Math.min(1, Math.max(0, (now - start) / 900));
         setShown(format(target * (1 - Math.pow(1 - t, 3))));
         if (t < 1) frame = requestAnimationFrame(tick);
       };
