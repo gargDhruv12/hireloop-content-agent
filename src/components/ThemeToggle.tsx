@@ -41,7 +41,7 @@ export function ThemeToggle() {
   return (
     <button
       type="button"
-      className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-[10px] border border-line bg-bg text-[15px] text-ink hover:bg-tint"
+      className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-[10px] border border-band-line bg-white/6 text-band-ink hover:bg-white/14"
       onClick={toggle}
       aria-label={theme ? `Switch to ${next} mode` : "Switch colour theme"}
       title={theme ? `Switch to ${next} mode` : undefined}

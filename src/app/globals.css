@@ -5,7 +5,7 @@
   the desk's own styles for channel previews, notes and research sit in the
   "legacy" layer underneath, so a Tailwind class always wins where both apply.
 */
-@layer theme, base, legacy, utilities;
+@layer theme, base, legacy, components, utilities;
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css" layer(utilities);
 
@@ -30,6 +30,12 @@
   --color-bad-solid: var(--cs-bad-solid);
   --color-bad-soft: var(--cs-bad-soft);
   --color-panel: var(--cs-panel);
+  /* The dark hero bands: the same in both themes. */
+  --color-band: #0c0920;
+  --color-band-ink: #f5f3ff;
+  --color-band-muted: #c4bdf0;
+  --color-band-line: rgb(255 255 255 / 0.14);
+  --color-band-accent: #c3b5ff;
   --font-sans: var(--font-manrope), "Segoe UI", system-ui, sans-serif;
   --font-serif: var(--font-serif-copy), Georgia, serif;
   --shadow-card: 0 1px 2px rgb(40 25 110 / 0.04);
@@ -161,7 +167,7 @@
 html,
 body {
   margin: 0;
-  background: var(--paper);
+  background: var(--desk);
   color: var(--ink);
   font-family: var(--sans);
   font-size: 14.5px;
@@ -1218,4 +1224,329 @@ a {
     padding: 24px 20px;
   }
 }
+}
+
+/*
+  Motion and the dark hero. Decorative movement only: everything here stops under
+  prefers-reduced-motion, and nothing is hidden before the page script runs.
+*/
+/* The orbit's angle, animatable so each card can turn back to face the viewer. */
+@property --spin {
+  syntax: "<angle>";
+  inherits: true;
+  initial-value: 0deg;
+}
+
+@layer components {
+  /* Dark bands: violet glows over near-black, the same in light and dark themes. */
+  .band {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    background:
+      radial-gradient(60% 80% at 85% 10%, rgb(124 92 255 / 0.38), transparent 60%),
+      radial-gradient(50% 70% at 10% 100%, rgb(56 189 248 / 0.16), transparent 60%),
+      radial-gradient(40% 60% at 50% 0%, rgb(236 72 153 / 0.12), transparent 60%),
+      var(--color-band);
+    color: var(--color-band-ink);
+  }
+
+  /* A faint grid that fades out toward the edges. */
+  .band::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background-image:
+      linear-gradient(rgb(255 255 255 / 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(255 255 255 / 0.05) 1px, transparent 1px);
+    background-size: 44px 44px;
+    mask-image: radial-gradient(70% 70% at 60% 40%, #000, transparent);
+  }
+
+  /* Slow-moving glow behind the content. */
+  .band::after {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    width: 520px;
+    height: 520px;
+    top: -200px;
+    right: -120px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgb(167 139 250 / 0.35), transparent 65%);
+    filter: blur(20px);
+    animation: band-drift 18s ease-in-out infinite alternate;
+  }
+
+  @keyframes band-drift {
+    to {
+      transform: translate(-160px, 120px) scale(1.15);
+    }
+  }
+
+  /* Buttons that sit on a dark band. */
+  .band .btn {
+    background: rgb(255 255 255 / 0.1);
+    color: var(--color-band-ink);
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.16);
+  }
+  .band .btn:hover:not(:disabled) {
+    background: rgb(255 255 255 / 0.18);
+  }
+  .band .btn--primary {
+    background: #f5f3ff;
+    color: #2a1a7a;
+    box-shadow: 0 10px 30px -10px rgb(167 139 250 / 0.8);
+  }
+  .band .btn--primary:hover:not(:disabled) {
+    background: #ffffff;
+  }
+  .band .btn--quiet {
+    background: transparent;
+    box-shadow: none;
+    color: var(--color-band-muted);
+  }
+  .band .btn--quiet:hover:not(:disabled) {
+    background: transparent;
+    color: var(--color-band-ink);
+  }
+
+  /* Big headline with a soft gradient. */
+  .band-title {
+    background: linear-gradient(100deg, #ffffff 30%, #d9cfff 60%, #9fdcff 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Glass cards on the bands. */
+  .glass {
+    background: rgb(255 255 255 / 0.06);
+    border: 1px solid rgb(255 255 255 / 0.14);
+    backdrop-filter: blur(12px);
+  }
+
+  /* ── The content core: one brief at the centre, the channels orbiting it ── */
+  .core {
+    --r: 225px;
+    --card-w: 112px;
+    position: relative;
+    width: 100%;
+    max-width: 560px;
+    aspect-ratio: 1 / 0.8;
+    perspective: 1100px;
+    margin-inline: auto;
+  }
+
+  .core__scene {
+    position: absolute;
+    inset: 0;
+    transform-style: preserve-3d;
+    transform: rotateX(-20deg);
+  }
+
+  .core__orbit {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    transform-style: preserve-3d;
+    animation: core-spin 40s linear infinite;
+  }
+
+  .core__card {
+    position: absolute;
+    left: calc(var(--card-w) / -2);
+    top: -20px;
+    width: var(--card-w);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 11px;
+    border-radius: 12px;
+    background: linear-gradient(160deg, rgb(255 255 255 / 0.16), rgb(255 255 255 / 0.05));
+    border: 1px solid rgb(255 255 255 / 0.22);
+    color: #f5f3ff;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+    box-shadow: 0 18px 40px -18px rgb(0 0 0 / 0.8);
+    /* Round the ring, then turned back to face the viewer, so every label stays readable. */
+    --a: calc(var(--i) * 360deg / var(--n) + var(--spin));
+    transform: rotateY(var(--a)) translateZ(var(--r)) rotateY(calc(var(--a) * -1));
+  }
+
+  .core__card i {
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    flex: none;
+    border-radius: 7px;
+    background: var(--c);
+    font-style: normal;
+    font-size: 11px;
+  }
+
+  /* The cube: the researched brief everything comes from. */
+  .core__cube {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 96px;
+    height: 96px;
+    margin: -48px 0 0 -48px;
+    transform-style: preserve-3d;
+    animation: core-tumble 22s linear infinite;
+  }
+
+  .core__face {
+    position: absolute;
+    inset: 0;
+    border-radius: 18px;
+    border: 1px solid rgb(255 255 255 / 0.35);
+    background: linear-gradient(135deg, rgb(139 108 255 / 0.85), rgb(56 189 248 / 0.55));
+    box-shadow: inset 0 0 30px rgb(255 255 255 / 0.25);
+  }
+  .core__face:nth-child(1) { transform: translateZ(48px); }
+  .core__face:nth-child(2) { transform: rotateY(180deg) translateZ(48px); }
+  .core__face:nth-child(3) { transform: rotateY(90deg) translateZ(48px); }
+  .core__face:nth-child(4) { transform: rotateY(-90deg) translateZ(48px); }
+  .core__face:nth-child(5) { transform: rotateX(90deg) translateZ(48px); }
+  .core__face:nth-child(6) { transform: rotateX(-90deg) translateZ(48px); }
+
+  /* Glow and a ring under the cube. */
+  .core__glow {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 260px;
+    height: 260px;
+    margin: -130px 0 0 -130px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgb(167 139 250 / 0.55), transparent 65%);
+    filter: blur(8px);
+    animation: core-pulse 5s ease-in-out infinite;
+  }
+
+  .core__ring {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: calc(var(--r) * 2);
+    height: calc(var(--r) * 2);
+    margin: calc(var(--r) * -1) 0 0 calc(var(--r) * -1);
+    border-radius: 50%;
+    border: 1px dashed rgb(255 255 255 / 0.2);
+    transform: rotateX(90deg);
+  }
+
+  @keyframes core-spin {
+    to {
+      --spin: 360deg;
+    }
+  }
+  @keyframes core-tumble {
+    from {
+      transform: rotateX(-20deg) rotateY(0deg);
+    }
+    to {
+      transform: rotateX(-20deg) rotateY(360deg);
+    }
+  }
+  @keyframes core-pulse {
+    50% {
+      opacity: 0.6;
+      transform: scale(0.9);
+    }
+  }
+
+  @media (max-width: 640px) {
+    .core {
+      --r: 124px;
+      --card-w: 96px;
+      max-width: 340px;
+    }
+    .core__card {
+      font-size: 11px;
+      padding: 7px 8px;
+    }
+    .core__cube {
+      width: 72px;
+      height: 72px;
+      margin: -36px 0 0 -36px;
+    }
+    .core__face:nth-child(1) { transform: translateZ(36px); }
+    .core__face:nth-child(2) { transform: rotateY(180deg) translateZ(36px); }
+    .core__face:nth-child(3) { transform: rotateY(90deg) translateZ(36px); }
+    .core__face:nth-child(4) { transform: rotateY(-90deg) translateZ(36px); }
+    .core__face:nth-child(5) { transform: rotateX(90deg) translateZ(36px); }
+    .core__face:nth-child(6) { transform: rotateX(-90deg) translateZ(36px); }
+  }
+
+  /* Scroll reveal: only once the script has marked the page, so nothing stays hidden without it. */
+  html[data-motion] .reveal {
+    opacity: 0;
+    transform: translateY(18px);
+    transition:
+      opacity 0.6s ease,
+      transform 0.6s cubic-bezier(0.2, 0.7, 0.2, 1);
+    transition-delay: var(--delay, 0ms);
+  }
+  html[data-motion] .reveal[data-shown] {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* Cards lift a little under the pointer. */
+  .lift {
+    transition:
+      transform 0.25s ease,
+      box-shadow 0.25s ease,
+      border-color 0.25s ease;
+  }
+  .lift:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 20px 40px -24px rgb(40 25 110 / 0.45);
+  }
+
+  /* A running workflow step gets a light sweeping across it. */
+  .shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+  .shimmer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(100deg, transparent 30%, rgb(255 255 255 / 0.35) 50%, transparent 70%);
+    transform: translateX(-100%);
+    animation: shimmer 1.6s ease-in-out infinite;
+    pointer-events: none;
+  }
+  @keyframes shimmer {
+    to {
+      transform: translateX(100%);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .band::after,
+    .core__orbit,
+    .core__cube,
+    .core__glow,
+    .shimmer::after {
+      animation: none;
+    }
+    html[data-motion] .reveal {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
+    .lift:hover {
+      transform: none;
+    }
+  }
 }

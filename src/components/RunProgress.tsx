@@ -137,7 +137,7 @@ export function RunProgress({
                 className={cn(
                   "flex items-start gap-3 rounded-xl border px-3 py-2.5 transition-colors",
                   st.status === "waiting" && "border-line",
-                  st.status === "running" && "border-brand-2/50 bg-lilac",
+                  st.status === "running" && "shimmer border-brand-2/50 bg-lilac",
                   st.status === "done" && "border-ok/30 bg-ok-soft",
                   st.status === "skipped" && "border-line bg-tint",
                   st.status === "failed" && "border-bad/40 bg-bad-soft",
