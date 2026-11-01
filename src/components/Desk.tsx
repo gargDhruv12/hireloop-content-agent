@@ -308,30 +308,30 @@ export function Desk({
         }
       >
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
-          <span className="text-muted">{meta.join(" · ")}</span>
+          <span className="text-band-muted">{meta.join(" · ")}</span>
           <span className="inline-flex items-center gap-2.5">
-            <span className="text-ink">
+            <span className="text-band-ink">
               <b>
                 {approvedCount} of {total}
               </b>{" "}
               approved
             </span>
             <span
-              className="h-1.5 w-32 overflow-hidden rounded-full bg-lilac"
+              className="h-1.5 w-32 overflow-hidden rounded-full bg-white/15"
               role="progressbar"
               aria-label="Pieces approved"
               aria-valuemin={0}
               aria-valuemax={total}
               aria-valuenow={approvedCount}
             >
-              <span className="block h-full rounded-full bg-ok transition-[width] duration-300" style={{ width: `${(approvedCount / total) * 100}%` }} />
+              <span className="block h-full rounded-full bg-linear-to-r from-[#5fd39a] to-[#9fdcff] transition-[width] duration-300" style={{ width: `${(approvedCount / total) * 100}%` }} />
             </span>
           </span>
         </div>
       </PageBand>
 
       <div className={cn(wrap, "py-6")}>
-        <section aria-label="Content pack" className="rounded-[14px] border border-line bg-bg shadow-card">
+        <section aria-label="Content pack" className="rounded-[16px] border border-line bg-bg shadow-[0_24px_48px_-32px_rgb(40_25_110/0.35)]">
           <PieceTabs groups={groups} view={view} onGo={go} />
 
           <div className="grid grid-cols-1 gap-6 p-4 sm:p-6 xl:grid-cols-[minmax(0,1fr)_20rem]">

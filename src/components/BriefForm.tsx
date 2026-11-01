@@ -121,7 +121,7 @@ export function BriefForm({ clients, children }: { clients: ClientChoice[]; chil
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:items-start">
       <aside className="grid grid-cols-1 gap-6 lg:sticky lg:top-24">
-        <Card title="Brief" description="One topic or news link becomes a full content pack." icon={<PenIcon />}>
+        <Card id="brief" title="Brief" description="One topic or news link becomes a full content pack." icon={<PenIcon />}>
           <form className="grid gap-4" onSubmit={start}>
             <div>
               <label className={label} htmlFor="topic">

@@ -80,10 +80,10 @@ export function Card({
   id?: string;
 }) {
   return (
-    <section id={id} aria-label={title} className={cn("scroll-mt-24 rounded-[14px] border border-line bg-bg shadow-card", className)}>
+    <section id={id} aria-label={title} className={cn("scroll-mt-24 rounded-[16px] border border-line bg-bg/90 shadow-[0_1px_0_rgb(255_255_255/0.6)_inset,0_24px_48px_-32px_rgb(40_25_110/0.35)] backdrop-blur-sm", className)}>
       <header className="flex flex-wrap items-start justify-between gap-3 border-b border-line px-4 py-3.5 sm:px-5">
         <div className="flex min-w-0 items-start gap-2.5">
-          {icon && <span className="grid size-8 shrink-0 place-items-center rounded-[10px] bg-lilac text-brand-text">{icon}</span>}
+          {icon && <span className="grid size-8 shrink-0 place-items-center rounded-[10px] bg-linear-to-br from-lilac to-tint text-brand-text ring-1 ring-brand-2/20">{icon}</span>}
           <div className="min-w-0">
             <h2 id={titleId} className="m-0 text-[15px] font-extrabold text-ink">
               {title}
@@ -101,7 +101,7 @@ export function Card({
 /** The page column every section lines up on. */
 export const wrap = "mx-auto w-full max-w-[1320px] px-4 sm:px-6";
 
-/** The tinted band under the header that opens each page. */
+/** The dark band under the header that opens each page. */
 export function PageBand({
   eyebrow,
   title,
@@ -117,16 +117,16 @@ export function PageBand({
   actions?: ReactNode;
 }) {
   return (
-    <section className="border-b border-line bg-linear-to-b from-tint to-bg">
+    <section className="band border-b border-band-line">
       <div className={cn(wrap, "flex flex-wrap items-end justify-between gap-x-8 gap-y-5 pt-9 pb-8")}>
         <div className="min-w-0 max-w-[72ch]">
           {eyebrow && (
-            <span className="inline-flex items-center gap-2 rounded-full border border-line bg-bg px-3 py-1.5 text-[13px] font-bold text-brand-text">
+            <span className="glass inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[13px] font-bold text-band-accent">
               {eyebrow}
             </span>
           )}
-          <Title className="m-0 mt-4 text-[clamp(26px,3.4vw,40px)] leading-[1.1] font-extrabold tracking-[-0.02em] text-ink">{title}</Title>
-          {children && <div className="mt-3 text-base text-muted">{children}</div>}
+          <Title className="band-title m-0 mt-4 text-[clamp(26px,3.4vw,40px)] leading-[1.1] font-extrabold tracking-[-0.02em]">{title}</Title>
+          {children && <div className="mt-3 text-base text-band-muted">{children}</div>}
         </div>
         {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
       </div>

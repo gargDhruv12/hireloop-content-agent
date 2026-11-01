@@ -26,19 +26,19 @@ export async function TopBar({
     <>
       <a
         href="#main"
-        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-lg focus:bg-bg focus:px-3 focus:py-2 focus:text-sm focus:text-ink"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-lg focus:bg-bg focus:px-3 focus:py-2 focus:text-sm focus:text-ink focus:z-50"
       >
         Skip to content
       </a>
-      <header className="sticky top-0 z-40 border-b border-line bg-bg/90 backdrop-blur-[8px]">
+      <header className="sticky top-0 z-40 border-b border-band-line bg-band/85 text-band-ink backdrop-blur-[12px] backdrop-saturate-150">
         <div className={cn(wrap, "flex h-16 items-center gap-3 sm:gap-6")}>
-          <Link href="/" className="flex shrink-0 items-center gap-2.5 text-ink no-underline">
-            <span className="grid size-[34px] place-items-center rounded-[10px] bg-brand text-on-brand">
+          <Link href="/" className="flex shrink-0 items-center gap-2.5 text-band-ink no-underline">
+            <span className="grid size-[34px] place-items-center rounded-[10px] bg-linear-to-br from-[#8b6cff] to-[#38bdf8] text-white shadow-[0_8px_24px_-8px_rgb(139_108_255/0.9)]">
               <SparklesIcon />
             </span>
             <span className="leading-tight">
               <span className="block text-[16px] font-extrabold">Content Studio</span>
-              <span className="hidden text-xs text-muted sm:block">HireLoop content agent</span>
+              <span className="hidden text-xs text-band-muted sm:block">HireLoop content agent</span>
             </span>
           </Link>
 
@@ -50,7 +50,7 @@ export async function TopBar({
                 aria-current={current === n.id ? "page" : undefined}
                 className={cn(
                   "rounded-[10px] px-3 py-2 text-sm font-bold whitespace-nowrap no-underline transition-colors",
-                  current === n.id ? "bg-lilac text-brand-text" : "text-muted hover:bg-tint hover:text-ink",
+                  current === n.id ? "bg-white/12 text-band-ink" : "text-band-muted hover:bg-white/8 hover:text-band-ink",
                   // The logo already goes home; on phones the space keeps the theme button on screen.
                   n.id === "new" && "max-sm:hidden",
                 )}
@@ -71,13 +71,13 @@ export async function TopBar({
                 <Badge tone="warning">Offline sample mode</Badge>
               </span>
             )}
-            <span className="hidden items-center gap-2 rounded-full border border-line bg-bg px-3 py-1.5 text-[13px] font-bold text-brand-text lg:inline-flex">
+            <span className="hidden items-center gap-2 rounded-full border border-band-line bg-white/6 px-3 py-1.5 text-[13px] font-bold text-band-ink lg:inline-flex">
               <span aria-hidden className="size-2 rounded-full bg-ok" />
               Client: HireLoop
             </span>
             {reviewer && (
               <span
-                className="hidden max-w-[16ch] truncate text-sm font-semibold text-muted sm:inline"
+                className="hidden max-w-[16ch] truncate text-sm font-semibold text-band-muted sm:inline"
                 title={reviewer.verified ? "Signed in" : "Signed in with the shared password; the name isn't verified"}
               >
                 {reviewer.name}
