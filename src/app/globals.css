@@ -1463,6 +1463,13 @@ a {
     }
   }
 
+  /* Two columns get tight between tablet and wide desktop: a smaller orbit keeps every card on screen. */
+  @media (max-width: 1279px) {
+    .core {
+      --r: 175px;
+    }
+  }
+
   @media (max-width: 640px) {
     .core {
       --r: 124px;
