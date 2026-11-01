@@ -2,16 +2,23 @@ import { expect, test, type Page } from "@playwright/test";
 
 const TOPIC = "Slow first-round interviews are costing BPOs their best applicants";
 
-/** Make a pack from the home page form, the way a person would, and land on its review page. */
+/** Make a pack from the brief form, the way a person would, and land on its review page. */
 async function newPack(page: Page) {
-  await page.goto("/");
+  await page.goto("/new");
   await page.getByLabel("Topic").fill(TOPIC);
   await page.getByRole("button", { name: "Write the content pack" }).click();
   await page.waitForURL(/\/runs\/[a-z0-9-]+/);
   await expect(page.getByRole("tablist", { name: "Pieces" })).toBeVisible();
 }
 
-test("a pack made from the home page opens on its research", async ({ page }) => {
+test("Start a brief on the overview opens the brief form", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("main").getByRole("link", { name: "Start a brief" }).first().click();
+  await expect(page).toHaveURL(/\/new$/);
+  await expect(page.getByLabel("Topic")).toBeVisible();
+});
+
+test("a pack made from the brief form opens on its research", async ({ page }) => {
   await newPack(page);
   await expect(page.getByRole("heading", { level: 1, name: "Research and plan" })).toBeVisible();
   await expect(page.getByRole("tab", { name: /^Research & plan/ })).toHaveAttribute("aria-selected", "true");
@@ -65,7 +72,7 @@ test("the approved pieces download as a zip", async ({ page }) => {
 
 test("no page scrolls sideways", async ({ page }) => {
   await newPack(page);
-  for (const path of ["/", page.url()]) {
+  for (const path of ["/", "/new", page.url()]) {
     await page.goto(path);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow, `sideways overflow on ${path}`).toBeLessThanOrEqual(0);
@@ -141,7 +148,7 @@ test("the theme toggle switches to dark and remembers it", async ({ page }) => {
 });
 
 test("a pack for another client shows that client's brand, not HireLoop's", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/new");
   await page.getByLabel("Client").selectOption({ label: "Brightpath Tutors (sample)" });
   // The audiences follow the client.
   await expect(page.getByLabel("Write for")).toHaveValue("Parents of Class 9–12 students in Indian cities");

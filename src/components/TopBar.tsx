@@ -6,7 +6,8 @@ import { Badge, cn, wrap } from "./ui/primitives";
 import { ThemeToggle } from "./ThemeToggle";
 
 const NAV = [
-  { href: "/", label: "New pack", id: "new" },
+  { href: "/", label: "Overview", id: "home" },
+  { href: "/new", label: "New pack", id: "new" },
   { href: "/packs", label: "All packs", id: "packs" },
 ] as const;
 
@@ -50,9 +51,9 @@ export async function TopBar({
                 aria-current={current === n.id ? "page" : undefined}
                 className={cn(
                   "rounded-[10px] px-3 py-2 text-sm font-bold whitespace-nowrap no-underline transition-colors",
-                  current === n.id ? "bg-white/12 text-band-ink" : "text-band-muted hover:bg-white/8 hover:text-band-ink",
-                  // The logo already goes home; on phones the space keeps the theme button on screen.
-                  n.id === "new" && "max-sm:hidden",
+                  current === n.id ? "bg-band-accent/12 text-band-ink" : "text-band-muted hover:bg-band-accent/8 hover:text-band-ink",
+                  // The logo already goes home, and the pill starts a brief: phones keep only All packs.
+                  n.id !== "packs" && "max-sm:hidden",
                 )}
               >
                 {n.label}
@@ -71,7 +72,7 @@ export async function TopBar({
                 <Badge tone="warning">Offline sample mode</Badge>
               </span>
             )}
-            <span className="hidden items-center gap-2 rounded-full border border-band-line bg-white/6 px-3 py-1.5 text-[13px] font-bold text-band-ink lg:inline-flex">
+            <span className="hidden items-center gap-2 rounded-full border border-band-line bg-band-glass px-3 py-1.5 text-[13px] font-bold text-band-ink xl:inline-flex">
               <span aria-hidden className="size-2 rounded-full bg-ok" />
               Client: HireLoop
             </span>
@@ -85,6 +86,12 @@ export async function TopBar({
               </span>
             )}
             <ThemeToggle />
+            <Link
+              href="/new"
+              className="hidden rounded-full bg-band-ink px-4 py-2 text-sm font-bold whitespace-nowrap text-band no-underline shadow-[0_10px_24px_-12px_rgb(21_19_43/0.8)] transition-opacity hover:opacity-90 md:inline-flex"
+            >
+              Start a brief
+            </Link>
           </div>
         </div>
       </header>

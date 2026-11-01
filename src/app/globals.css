@@ -30,12 +30,13 @@
   --color-bad-solid: var(--cs-bad-solid);
   --color-bad-soft: var(--cs-bad-soft);
   --color-panel: var(--cs-panel);
-  /* The dark hero bands: the same in both themes. */
-  --color-band: #0c0920;
-  --color-band-ink: #f5f3ff;
-  --color-band-muted: #c4bdf0;
-  --color-band-line: rgb(255 255 255 / 0.14);
-  --color-band-accent: #c3b5ff;
+  /* The bands that open each page: lavender light, deep violet in dark mode. */
+  --color-band: var(--cs-band);
+  --color-band-ink: var(--cs-band-ink);
+  --color-band-muted: var(--cs-band-muted);
+  --color-band-line: var(--cs-band-line);
+  --color-band-accent: var(--cs-band-accent);
+  --color-band-glass: var(--cs-band-glass);
   --font-sans: var(--font-manrope), "Segoe UI", system-ui, sans-serif;
   --font-serif: var(--font-serif-copy), Georgia, serif;
   --shadow-card: 0 1px 2px rgb(40 25 110 / 0.04);
@@ -1227,28 +1228,65 @@ a {
 }
 
 /*
-  Motion and the dark hero. Decorative movement only: everything here stops under
+  The landing page's glass look: soft lavender light, frosted panels, and 3D glass
+  objects drawn in CSS. Decorative movement only; it all stops under
   prefers-reduced-motion, and nothing is hidden before the page script runs.
 */
-/* The orbit's angle, animatable so each card can turn back to face the viewer. */
-@property --spin {
-  syntax: "<angle>";
-  inherits: true;
-  initial-value: 0deg;
+:root {
+  --cs-band: #f3f0ff;
+  --cs-band-ink: #15132b;
+  --cs-band-muted: #4f4b6b;
+  --cs-band-line: rgb(91 63 214 / 0.14);
+  --cs-band-accent: #5b3fd6;
+  --cs-band-grid: rgb(91 63 214 / 0.07);
+  --cs-band-glass: rgb(255 255 255 / 0.62);
+  --cs-band-glass-line: rgb(255 255 255 / 0.95);
+  --cs-band-title: linear-gradient(100deg, #15132b 35%, #5b3fd6 100%);
+  --cs-band-cta: #5b3fd6;
+  --cs-band-cta-ink: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --cs-band: #0c0920;
+    --cs-band-ink: #f5f3ff;
+    --cs-band-muted: #c4bdf0;
+    --cs-band-line: rgb(255 255 255 / 0.14);
+    --cs-band-accent: #c3b5ff;
+    --cs-band-grid: rgb(255 255 255 / 0.05);
+    --cs-band-glass: rgb(255 255 255 / 0.07);
+    --cs-band-glass-line: rgb(255 255 255 / 0.16);
+    --cs-band-title: linear-gradient(100deg, #ffffff 30%, #d9cfff 60%, #9fdcff 100%);
+    --cs-band-cta: #f5f3ff;
+    --cs-band-cta-ink: #2a1a7a;
+  }
+}
+
+:root[data-theme="dark"] {
+  --cs-band: #0c0920;
+  --cs-band-ink: #f5f3ff;
+  --cs-band-muted: #c4bdf0;
+  --cs-band-line: rgb(255 255 255 / 0.14);
+  --cs-band-accent: #c3b5ff;
+  --cs-band-grid: rgb(255 255 255 / 0.05);
+  --cs-band-glass: rgb(255 255 255 / 0.07);
+  --cs-band-glass-line: rgb(255 255 255 / 0.16);
+  --cs-band-title: linear-gradient(100deg, #ffffff 30%, #d9cfff 60%, #9fdcff 100%);
+  --cs-band-cta: #f5f3ff;
+  --cs-band-cta-ink: #2a1a7a;
 }
 
 @layer components {
-  /* Dark bands: violet glows over near-black, the same in light and dark themes. */
+  /* Bands open each page: lavender light (deep violet in dark mode) with soft glows. */
   .band {
     position: relative;
     isolation: isolate;
     overflow: hidden;
     background:
-      radial-gradient(60% 80% at 85% 10%, rgb(124 92 255 / 0.38), transparent 60%),
-      radial-gradient(50% 70% at 10% 100%, rgb(56 189 248 / 0.16), transparent 60%),
-      radial-gradient(40% 60% at 50% 0%, rgb(236 72 153 / 0.12), transparent 60%),
-      var(--color-band);
-    color: var(--color-band-ink);
+      radial-gradient(55% 75% at 88% 8%, rgb(124 92 255 / 0.28), transparent 62%),
+      radial-gradient(45% 65% at 6% 100%, rgb(56 189 248 / 0.12), transparent 60%),
+      var(--cs-band);
+    color: var(--cs-band-ink);
   }
 
   /* A faint grid that fades out toward the edges. */
@@ -1258,8 +1296,8 @@ a {
     inset: 0;
     z-index: -1;
     background-image:
-      linear-gradient(rgb(255 255 255 / 0.05) 1px, transparent 1px),
-      linear-gradient(90deg, rgb(255 255 255 / 0.05) 1px, transparent 1px);
+      linear-gradient(var(--cs-band-grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--cs-band-grid) 1px, transparent 1px);
     background-size: 44px 44px;
     mask-image: radial-gradient(70% 70% at 60% 40%, #000, transparent);
   }
@@ -1271,10 +1309,10 @@ a {
     z-index: -1;
     width: 520px;
     height: 520px;
-    top: -200px;
-    right: -120px;
+    top: -220px;
+    right: -140px;
     border-radius: 50%;
-    background: radial-gradient(circle, rgb(167 139 250 / 0.35), transparent 65%);
+    background: radial-gradient(circle, rgb(167 139 250 / 0.3), transparent 65%);
     filter: blur(20px);
     animation: band-drift 18s ease-in-out infinite alternate;
   }
@@ -1285,212 +1323,189 @@ a {
     }
   }
 
-  /* Buttons that sit on a dark band. */
+  /* Buttons that sit on a band. */
   .band .btn {
-    background: rgb(255 255 255 / 0.1);
-    color: var(--color-band-ink);
-    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.16);
+    background: var(--cs-band-glass);
+    color: var(--cs-band-ink);
+    box-shadow:
+      inset 0 0 0 1px var(--cs-band-line),
+      0 8px 24px -16px rgb(40 25 110 / 0.5);
+    backdrop-filter: blur(10px);
   }
   .band .btn:hover:not(:disabled) {
-    background: rgb(255 255 255 / 0.18);
+    background: var(--cs-band-glass-line);
   }
   .band .btn--primary {
-    background: #f5f3ff;
-    color: #2a1a7a;
-    box-shadow: 0 10px 30px -10px rgb(167 139 250 / 0.8);
+    background: var(--cs-band-cta);
+    color: var(--cs-band-cta-ink);
+    box-shadow: 0 12px 30px -12px rgb(91 63 214 / 0.8);
   }
   .band .btn--primary:hover:not(:disabled) {
-    background: #ffffff;
+    background: var(--cs-band-cta);
+    filter: brightness(1.08);
   }
   .band .btn--quiet {
     background: transparent;
     box-shadow: none;
-    color: var(--color-band-muted);
+    color: var(--cs-band-muted);
   }
   .band .btn--quiet:hover:not(:disabled) {
     background: transparent;
-    color: var(--color-band-ink);
+    color: var(--cs-band-ink);
   }
 
   /* Big headline with a soft gradient. */
   .band-title {
-    background: linear-gradient(100deg, #ffffff 30%, #d9cfff 60%, #9fdcff 100%);
+    background: var(--cs-band-title);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
   }
 
-  /* Glass cards on the bands. */
+  /* Frosted panels. */
   .glass {
-    background: rgb(255 255 255 / 0.06);
-    border: 1px solid rgb(255 255 255 / 0.14);
-    backdrop-filter: blur(12px);
+    background: var(--cs-band-glass);
+    border: 1px solid var(--cs-band-glass-line);
+    backdrop-filter: blur(14px) saturate(140%);
+    box-shadow: 0 18px 40px -28px rgb(40 25 110 / 0.45);
   }
 
-  /* ── The content core: one brief at the centre, the channels orbiting it ── */
-  .core {
-    --r: 225px;
-    --card-w: 112px;
+  /* ── The hero's glass objects ─────────────────────────────────────── */
+  .scene {
     position: relative;
     width: 100%;
     max-width: 560px;
-    aspect-ratio: 1 / 0.8;
-    perspective: 1100px;
+    aspect-ratio: 1 / 0.92;
     margin-inline: auto;
   }
 
-  .core__scene {
+  /* Rounded glass tiles that float, each holding a channel's mark. */
+  .tile {
     position: absolute;
-    inset: 0;
-    transform-style: preserve-3d;
-    transform: rotateX(-20deg);
-  }
-
-  .core__orbit {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 0;
-    height: 0;
-    transform-style: preserve-3d;
-    animation: core-spin 40s linear infinite;
-  }
-
-  .core__card {
-    position: absolute;
-    left: calc(var(--card-w) / -2);
-    top: -20px;
-    width: var(--card-w);
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    padding: 9px 11px;
-    border-radius: 12px;
-    background: linear-gradient(160deg, rgb(255 255 255 / 0.16), rgb(255 255 255 / 0.05));
-    border: 1px solid rgb(255 255 255 / 0.22);
-    color: #f5f3ff;
-    font-size: 12px;
-    font-weight: 700;
-    white-space: nowrap;
-    box-shadow: 0 18px 40px -18px rgb(0 0 0 / 0.8);
-    /* Round the ring, then turned back to face the viewer, so every label stays readable. */
-    --a: calc(var(--i) * 360deg / var(--n) + var(--spin));
-    transform: rotateY(var(--a)) translateZ(var(--r)) rotateY(calc(var(--a) * -1));
-  }
-
-  .core__card i {
     display: grid;
     place-items: center;
-    width: 22px;
-    height: 22px;
-    flex: none;
-    border-radius: 7px;
-    background: var(--c);
-    font-style: normal;
-    font-size: 11px;
+    width: var(--s, 104px);
+    aspect-ratio: 1;
+    border-radius: 26%;
+    background: linear-gradient(145deg, rgb(255 255 255 / 0.75), rgb(255 255 255 / 0.18));
+    border: 1px solid rgb(255 255 255 / 0.9);
+    box-shadow:
+      inset 0 2px 10px rgb(255 255 255 / 0.8),
+      inset 0 -10px 24px rgb(124 92 255 / 0.18),
+      0 30px 50px -24px rgb(40 25 110 / 0.55);
+    backdrop-filter: blur(10px);
+    transform: rotate(var(--rot, 0deg));
+    animation: float 7s ease-in-out infinite;
+    animation-delay: var(--d, 0s);
+  }
+  .tile--dark {
+    background: linear-gradient(145deg, #2b2547, #121022);
+    border-color: rgb(255 255 255 / 0.18);
+  }
+  .tile svg {
+    width: 52%;
+    height: 52%;
   }
 
-  /* The cube: the researched brief everything comes from. */
-  .core__cube {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 96px;
-    height: 96px;
-    margin: -48px 0 0 -48px;
-    transform-style: preserve-3d;
-    animation: core-tumble 22s linear infinite;
-  }
-
-  .core__face {
-    position: absolute;
-    inset: 0;
-    border-radius: 18px;
-    border: 1px solid rgb(255 255 255 / 0.35);
-    background: linear-gradient(135deg, rgb(139 108 255 / 0.85), rgb(56 189 248 / 0.55));
-    box-shadow: inset 0 0 30px rgb(255 255 255 / 0.25);
-  }
-  .core__face:nth-child(1) { transform: translateZ(48px); }
-  .core__face:nth-child(2) { transform: rotateY(180deg) translateZ(48px); }
-  .core__face:nth-child(3) { transform: rotateY(90deg) translateZ(48px); }
-  .core__face:nth-child(4) { transform: rotateY(-90deg) translateZ(48px); }
-  .core__face:nth-child(5) { transform: rotateX(90deg) translateZ(48px); }
-  .core__face:nth-child(6) { transform: rotateX(-90deg) translateZ(48px); }
-
-  /* Glow and a ring under the cube. */
-  .core__glow {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 260px;
-    height: 260px;
-    margin: -130px 0 0 -130px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgb(167 139 250 / 0.55), transparent 65%);
-    filter: blur(8px);
-    animation: core-pulse 5s ease-in-out infinite;
-  }
-
-  .core__ring {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: calc(var(--r) * 2);
-    height: calc(var(--r) * 2);
-    margin: calc(var(--r) * -1) 0 0 calc(var(--r) * -1);
-    border-radius: 50%;
-    border: 1px dashed rgb(255 255 255 / 0.2);
-    transform: rotateX(90deg);
-  }
-
-  @keyframes core-spin {
-    to {
-      --spin: 360deg;
-    }
-  }
-  @keyframes core-tumble {
-    from {
-      transform: rotateX(-20deg) rotateY(0deg);
-    }
-    to {
-      transform: rotateX(-20deg) rotateY(360deg);
-    }
-  }
-  @keyframes core-pulse {
+  @keyframes float {
     50% {
-      opacity: 0.6;
-      transform: scale(0.9);
+      transform: translateY(-14px) rotate(calc(var(--rot, 0deg) + 4deg));
     }
   }
 
-  /* Two columns get tight between tablet and wide desktop: a smaller orbit keeps every card on screen. */
-  @media (max-width: 1279px) {
-    .core {
-      --r: 175px;
+  /* Glass cylinders standing in a glass dish: a little bar chart. */
+  .dish {
+    position: absolute;
+    left: 50%;
+    bottom: 4%;
+    width: 78%;
+    height: 22%;
+    transform: translateX(-50%);
+    border-radius: 50%;
+    background: radial-gradient(closest-side, rgb(255 255 255 / 0.25), rgb(124 92 255 / 0.12) 70%, rgb(255 255 255 / 0.5));
+    border: 2px solid rgb(255 255 255 / 0.85);
+    box-shadow:
+      0 30px 50px -20px rgb(40 25 110 / 0.5),
+      inset 0 -8px 20px rgb(124 92 255 / 0.25);
+  }
+  .dish::after {
+    content: "";
+    position: absolute;
+    inset: 12% 8%;
+    border-radius: 50%;
+    border: 1px solid rgb(255 255 255 / 0.7);
+  }
+
+  .bars {
+    position: absolute;
+    left: 50%;
+    bottom: 15%;
+    display: flex;
+    align-items: flex-end;
+    gap: 6%;
+    width: 52%;
+    height: 66%;
+    transform: translateX(-50%);
+  }
+
+  .bar {
+    position: relative;
+    flex: 1;
+    height: var(--h);
+    border-radius: 999px / 22px;
+    background: linear-gradient(90deg, rgb(255 255 255 / 0.55), rgb(var(--tint) / 0.55) 45%, rgb(255 255 255 / 0.35));
+    border: 1px solid rgb(255 255 255 / 0.9);
+    box-shadow:
+      inset 0 0 18px rgb(255 255 255 / 0.6),
+      0 20px 30px -18px rgb(40 25 110 / 0.6);
+    transform-origin: bottom;
+    animation: grow 1.4s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+    animation-delay: var(--d, 0s);
+  }
+  /* The ellipse on top of each cylinder. */
+  .bar::before {
+    content: "";
+    position: absolute;
+    left: -1px;
+    right: -1px;
+    top: -1px;
+    height: 20px;
+    border-radius: 50%;
+    background: rgb(255 255 255 / 0.7);
+    border: 1px solid rgb(255 255 255 / 0.95);
+  }
+
+  @keyframes grow {
+    from {
+      transform: scaleY(0.2);
+      opacity: 0;
     }
   }
 
-  @media (max-width: 640px) {
-    .core {
-      --r: 124px;
-      --card-w: 96px;
-      max-width: 340px;
-    }
-    .core__card {
-      font-size: 11px;
-      padding: 7px 8px;
-    }
-    .core__cube {
-      width: 72px;
-      height: 72px;
-      margin: -36px 0 0 -36px;
-    }
-    .core__face:nth-child(1) { transform: translateZ(36px); }
-    .core__face:nth-child(2) { transform: rotateY(180deg) translateZ(36px); }
-    .core__face:nth-child(3) { transform: rotateY(90deg) translateZ(36px); }
-    .core__face:nth-child(4) { transform: rotateY(-90deg) translateZ(36px); }
-    .core__face:nth-child(5) { transform: rotateX(90deg) translateZ(36px); }
-    .core__face:nth-child(6) { transform: rotateX(-90deg) translateZ(36px); }
+  /* Small glass spheres drifting around. */
+  .orb {
+    position: absolute;
+    width: var(--s, 46px);
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: radial-gradient(circle at 32% 28%, #fff, rgb(196 181 253 / 0.7) 40%, rgb(91 63 214 / 0.55));
+    box-shadow: 0 16px 30px -12px rgb(40 25 110 / 0.5);
+    animation: float 9s ease-in-out infinite;
+    animation-delay: var(--d, 0s);
+  }
+
+  /* Glass bars in the dark chart card. */
+  .chart-bar {
+    flex: 1;
+    min-width: 0;
+    height: var(--h);
+    border-radius: 10px 10px 4px 4px;
+    background: linear-gradient(180deg, rgb(196 181 253 / 0.9), rgb(124 92 255 / 0.35));
+    border: 1px solid rgb(255 255 255 / 0.35);
+    box-shadow: inset 0 0 14px rgb(255 255 255 / 0.25);
+    transform-origin: bottom;
+    animation: grow 1.2s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+    animation-delay: var(--d, 0s);
   }
 
   /* Scroll reveal: only once the script has marked the page, so nothing stays hidden without it. */
@@ -1511,12 +1526,11 @@ a {
   .lift {
     transition:
       transform 0.25s ease,
-      box-shadow 0.25s ease,
-      border-color 0.25s ease;
+      box-shadow 0.25s ease;
   }
   .lift:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 20px 40px -24px rgb(40 25 110 / 0.45);
+    transform: translateY(-4px);
+    box-shadow: 0 26px 50px -28px rgb(40 25 110 / 0.5);
   }
 
   /* A running workflow step gets a light sweeping across it. */
@@ -1541,9 +1555,10 @@ a {
 
   @media (prefers-reduced-motion: reduce) {
     .band::after,
-    .core__orbit,
-    .core__cube,
-    .core__glow,
+    .tile,
+    .orb,
+    .bar,
+    .chart-bar,
     .shimmer::after {
       animation: none;
     }
